@@ -506,6 +506,61 @@ body {
   background: var(--surface2); border: 1px solid var(--border);
   border-radius: 9px; padding: 15px 17px; margin-top: 12px;
 }
+
+/* ── 圈選改圖 ─────────────────────────────────────────── */
+.design-tab.edit-on {
+  background: var(--accent); color: #fff;
+}
+.edit-strip {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface2));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  color: var(--text); font-size: 0.75rem; padding: 6px 12px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.edit-strip-clear {
+  margin-left: auto; background: var(--surface); color: var(--text2);
+  border: 1px solid var(--border); border-radius: 5px;
+  padding: 3px 9px; font-size: 0.72rem; font-weight: 600; cursor: pointer;
+}
+.edit-strip-clear:hover { color: var(--danger, #f56c6c); border-color: currentColor; }
+.design-preview-stage { position: relative; }
+.edit-bubble {
+  position: absolute; z-index: 40; width: 320px; max-width: calc(100% - 16px);
+  background: var(--surface); border: 1px solid var(--accent);
+  border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.28);
+  padding: 10px 11px; font-size: 0.8rem;
+}
+.eb-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.eb-target {
+  font-weight: 700; font-size: 0.78rem; color: var(--accent);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 210px;
+}
+.eb-tools { display: flex; gap: 4px; }
+.eb-icon {
+  width: 24px; height: 24px; border-radius: 5px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text2); cursor: pointer; font-size: 0.85rem; line-height: 1;
+}
+.eb-icon:hover { color: var(--text); border-color: var(--accent); }
+.eb-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 9px; }
+.eb-chip {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 20px;
+  padding: 3px 10px; font-size: 0.72rem; color: var(--text2); cursor: pointer;
+  transition: all var(--trans);
+}
+.eb-chip:hover { color: var(--accent); border-color: var(--accent); }
+.eb-input-row { display: flex; gap: 6px; }
+.eb-input {
+  flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 9px; color: var(--text); font-size: 0.78rem;
+}
+.eb-input:focus { outline: none; border-color: var(--accent); }
+.eb-apply {
+  background: var(--accent); color: #fff; border: none; border-radius: 6px;
+  padding: 6px 12px; font-size: 0.76rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.eb-hint { font-size: 0.7rem; color: var(--text2); margin-top: 6px; min-height: 0; line-height: 1.5; }
+.eb-hint.warn { color: var(--warn); }
+.eb-hint.ok { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -651,6 +706,7 @@ body {
           <button class="design-tab" id="tabCode" onclick="switchDesignTab('code')">程式碼</button>
         </div>
         <button class="design-tab" onclick="toggleFieldEditor()">✏️ 欄位</button>
+        <button class="design-tab" id="editModeBtn" onclick="toggleEditMode()">🎯 圈選改圖</button>
         <button class="btn btn-success" id="downloadDesignBtn" onclick="downloadDesignHtml()" style="display:none;">⬇ 下載 .vue</button>
       </div>
     </div>
@@ -665,7 +721,30 @@ body {
       </div>
     </div>
     <div class="mock-strip" id="mockStrip">⚠️ 預覽中的表格資料為<b>示意假資料</b>，僅供確認版面與欄位；實際資料由工程師串接後端後顯示</div>
-    <iframe class="design-preview-frame" id="designPreviewFrame" sandbox="allow-scripts"></iframe>
+    <div class="edit-strip" id="editStrip" style="display:none;">
+      🎯 <b>圈選改圖模式</b>：把滑鼠移到預覽上會高亮元素，<b>點一下</b>選取後就能打提詞修改（例如「背景改深藍」「字放大」「置中」「把文字改成 XXX」「刪除」）。
+      <button class="edit-strip-clear" id="editClearAll" onclick="clearAllPatches()" style="display:none;">↩ 清除全部修改</button>
+    </div>
+    <div class="design-preview-stage" id="designPreviewStage">
+      <iframe class="design-preview-frame" id="designPreviewFrame" sandbox="allow-scripts"></iframe>
+      <!-- 圈選提詞氣泡 -->
+      <div class="edit-bubble" id="editBubble" style="display:none;">
+        <div class="eb-head">
+          <span class="eb-target" id="ebTarget">已選元素</span>
+          <span class="eb-tools">
+            <button class="eb-icon" title="還原此元素" onclick="revertSelected()">↩</button>
+            <button class="eb-icon" title="關閉" onclick="closeBubble()">✕</button>
+          </span>
+        </div>
+        <div class="eb-chips" id="ebChips"></div>
+        <div class="eb-input-row">
+          <input type="text" id="ebInput" class="eb-input" placeholder="描述想怎麼改… 背景改藍 / 字放大 / 置中 / 把文字改成 XXX / 刪除"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();applyPrompt();}">
+          <button class="eb-apply" onclick="applyPrompt()">套用</button>
+        </div>
+        <div class="eb-hint" id="ebHint"></div>
+      </div>
+    </div>
     <pre class="design-code-pre" id="designCodePre"></pre>
   </div>
 </div>
@@ -2165,6 +2244,7 @@ function runLocalGeneration() {
   dlBtn.style.display = 'inline-block';
   dlBtn.textContent = tools.length > 1 ? `⬇ 下載 .vue ZIP（${tools.length} 個）` : '⬇ 下載 .vue';
   switchDesignTab('preview');
+  closeBubble(); updateClearBtn();  // 圈選：切工具時同步狀態（patch 於 iframe ready 後自動重套）
 }
 
 function switchTool(idx) {
@@ -2902,7 +2982,7 @@ async function downloadDeliveryZip() {
     const meta = extractSpecMeta(state, tool);
     const vname = (meta.entity && meta.entity !== 'YourTable') ? meta.entity
       : tool.name.replace(/[^\w一-龥]+/g, '').slice(0, 40) || 'AdminView';
-    zip.file('frontend/' + vname + '.vue', buildLocalVue(tplKey, state, tool));
+    zip.file('frontend/' + vname + '.vue', injectPatchCss(buildLocalVue(tplKey, state, tool), window._patchStore[tplKey + '|' + tools.indexOf(tool)]));
     toolRows.push(`| ${tool.name} | frontend/${vname}.vue | ${meta.db}.${meta.schema}.${meta.table} | /${meta.domain.toLowerCase()}/${meta.kebab}/list |`);
   }
   for (const f of backendFiles) zip.file('backend/' + f.path, f.content);
@@ -2972,12 +3052,244 @@ function switchDesignTab(tab) {
     frame.style.display = 'none'; code.style.display = 'block';
     if (strip) strip.style.display = 'none';
     tPrev.classList.remove('active'); tCode.classList.add('active');
+    closeBubble();  // 切到程式碼分頁時關閉圈選氣泡
   }
+}
+
+// ─── 圈選改圖（離線規則引擎）────────────────────────────────────────────────
+window._editMode = false;
+window._patchStore = {};          // key: `${tpl}|${toolIdx}` → [patch]
+window._selSelector = null;       // 目前選取的元素 selector
+
+function curPatchKey() { return (window._selectedTemplate || '?') + '|' + (window._activeToolIdx || 0); }
+function getPatches() { const k = curPatchKey(); return (window._patchStore[k] = window._patchStore[k] || []); }
+function findPatch(sel) { return getPatches().find(p => p.selector === sel); }
+function newPatch(sel, label) {
+  const p = { selector: sel, label: label, color: null, bg: null, borderColor: null,
+    fontScale: 1, bold: null, align: null, radius: null, shadow: null, pad: null, text: null, hidden: false };
+  getPatches().push(p); return p;
+}
+function postToFrame(msg) {
+  const f = document.getElementById('designPreviewFrame');
+  if (f && f.contentWindow) f.contentWindow.postMessage(Object.assign({ __specEdit: 1 }, msg), '*');
+}
+
+// 顏色字典（中/英）
+const EDIT_COLORS = {
+  '藍': '#409eff', '蓝': '#409eff', 'blue': '#409eff',
+  '深藍': '#1d4ed8', '深蓝': '#1d4ed8', '海軍藍': '#1e3a8a',
+  '淺藍': '#7cc4ff', '天藍': '#38bdf8',
+  '紅': '#f56c6c', '红': '#f56c6c', 'red': '#f56c6c',
+  '綠': '#67c23a', '绿': '#67c23a', 'green': '#67c23a', '墨綠': '#166534',
+  '黃': '#e6a23c', '黄': '#e6a23c', 'yellow': '#f7c948', '金': '#d4a017',
+  '橘': '#ff9800', '橙': '#ff9800', 'orange': '#ff9800',
+  '紫': '#8b5cf6', 'purple': '#8b5cf6',
+  '粉': '#ff6b9d', 'pink': '#ff6b9d',
+  '青': '#06b6d4', '藍綠': '#06b6d4', 'cyan': '#06b6d4', '蒂芬妮': '#0abab5',
+  '灰': '#909399', 'gray': '#909399', 'grey': '#909399', '淺灰': '#f0f2f5', '深灰': '#4b5563',
+  '黑': '#303133', 'black': '#303133', '白': '#ffffff', 'white': '#ffffff',
+  '深色': '#2b2f36', 'dark': '#2b2f36', '暗': '#2b2f36',
+};
+function pickColor(text) {
+  // 長字優先（深藍 先於 藍）
+  const keys = Object.keys(EDIT_COLORS).sort((a, b) => b.length - a.length);
+  for (const k of keys) if (text.includes(k)) return { word: k, hex: EDIT_COLORS[k] };
+  return null;
+}
+
+// 提詞 → 修改 patch（回傳 {matched, note}）
+function parsePrompt(text, patch) {
+  const t = text.trim(); const low = t.toLowerCase(); let matched = false;
+  const has = (re) => re.test(t) || re.test(low);
+
+  // 文字內容修改：把文字改成「X」/ 文字改為 X / 標題改成 X / 改字為 X
+  let m = t.match(/(?:文字|標題|字|內容|標籤|title|text)\s*(?:改成|改為|換成|設為|設成|變成|改|為|:|：|=)\s*[「『"'“]?([^」』"'”]+?)[」』"'”]?$/i);
+  if (m && m[1] && m[1].trim() && !pickColor(m[1])) { patch.text = m[1].trim(); matched = true; }
+
+  // 刪除 / 隱藏 / 顯示
+  if (has(/刪除|删除|移除|隱藏|隐藏|不要顯示|不顯示|拿掉|delete|remove|hide/)) { patch.hidden = true; matched = true; }
+  if (has(/顯示|显示|show|恢復顯示/)) { patch.hidden = false; matched = true; }
+
+  // 顏色 + 目標
+  const col = pickColor(t);
+  if (col) {
+    if (has(/邊框|边框|框線|框线|外框|border/)) patch.borderColor = col.hex;
+    else if (has(/文字|字色|字體顏色|字体颜色|前景|text|font/)) patch.color = col.hex;
+    else patch.bg = col.hex; // 預設當背景（含「背景/底色/底」或未指定）
+    // 深色底時文字自動轉白，避免看不到
+    if (patch.bg && /#(30|2b|1|16|4b|18|1d|1e)/.test(patch.bg) && !patch.color) patch.color = '#ffffff';
+    matched = true;
+  }
+
+  // 大小（避開「間距大/小一點」等留白語意）
+  const spacingCtx = has(/間距|间距|padding|margin|留白|邊距|边距|寬鬆|宽松|緊湊|紧凑/);
+  if (has(/放大|加大|變大|变大|字大|bigger|larger/) || (has(/大一點|大一点/) && !spacingCtx)) { patch.fontScale = Math.min(+(patch.fontScale * 1.15).toFixed(2), 2); matched = true; }
+  if (has(/縮小|缩小|變小|变小|字小|smaller/) || (has(/小一點|小一点/) && !spacingCtx)) { patch.fontScale = Math.max(+(patch.fontScale / 1.15).toFixed(2), 0.6); matched = true; }
+
+  // 粗細
+  if (has(/粗體|粗体|加粗|變粗|变粗|bold/)) { patch.bold = true; matched = true; }
+  if (has(/變細|变细|不要粗|細一點|normal/)) { patch.bold = false; matched = true; }
+
+  // 對齊
+  if (has(/置中|中間|中间|居中|center/)) { patch.align = 'center'; matched = true; }
+  else if (has(/靠左|向左|左對齊|左对齐|left/)) { patch.align = 'left'; matched = true; }
+  else if (has(/靠右|向右|右對齊|右对齐|right/)) { patch.align = 'right'; matched = true; }
+
+  // 圓角
+  if (has(/圓角|圆角|更圓|更圆|round|radius/)) { patch.radius = 'round'; matched = true; }
+  if (has(/直角|方角|方正|square|不要圓/)) { patch.radius = 'square'; matched = true; }
+
+  // 陰影
+  if (has(/陰影|阴影|shadow|立體/)) { patch.shadow = !has(/不要|去除|移除|no\s*shadow/); matched = true; }
+
+  // 間距
+  if (has(/間距|间距|寬鬆|宽松|鬆一點|padding.*大|留白/)) { patch.pad = '大'; matched = true; }
+  if (has(/緊湊|紧凑|窄一點|padding.*小|間距.*小/)) { patch.pad = '小'; matched = true; }
+
+  return { matched, note: matched ? '' : '這句我看不懂 🤔 試試：背景改藍 / 字放大 / 置中 / 加陰影 / 把文字改成 XXX / 刪除' };
+}
+
+// patch → CSS 樣式物件
+function computeStyles(patch) {
+  const s = {};
+  if (patch.hidden) { s.display = 'none'; return s; }
+  if (patch.color) s.color = patch.color;
+  if (patch.bg) s.background = patch.bg;
+  if (patch.borderColor) { s.borderColor = patch.borderColor; s.borderStyle = 'solid'; s.borderWidth = '1px'; }
+  if (patch.fontScale && patch.fontScale !== 1) s.fontSize = patch.fontScale.toFixed(2) + 'em';
+  if (patch.bold === true) s.fontWeight = '700'; else if (patch.bold === false) s.fontWeight = '400';
+  if (patch.align) s.textAlign = patch.align;
+  if (patch.radius === 'round') s.borderRadius = '12px'; else if (patch.radius === 'square') s.borderRadius = '0';
+  if (patch.shadow === true) s.boxShadow = '0 4px 16px rgba(0,0,0,.18)'; else if (patch.shadow === false) s.boxShadow = 'none';
+  if (patch.pad === '大') s.padding = '16px'; else if (patch.pad === '小') s.padding = '4px 6px';
+  return s;
+}
+
+function sendPatch(patch) {
+  postToFrame({ type: 'applyPatch', selector: patch.selector, styles: computeStyles(patch), text: patch.text, hidden: patch.hidden });
+}
+function reapplyAll() { getPatches().forEach(sendPatch); }
+
+// ── 模式切換 ──
+function toggleEditMode() {
+  window._editMode = !window._editMode;
+  const btn = document.getElementById('editModeBtn');
+  const strip = document.getElementById('editStrip');
+  btn.classList.toggle('edit-on', window._editMode);
+  strip.style.display = window._editMode ? 'flex' : 'none';
+  if (window._editMode) switchDesignTab('preview');
+  else closeBubble();
+  updateClearBtn();
+  postToFrame({ type: 'editMode', on: window._editMode });
+}
+function updateClearBtn() {
+  const b = document.getElementById('editClearAll');
+  if (b) b.style.display = getPatches().length ? 'inline-block' : 'none';
+}
+
+// ── 氣泡 ──
+const EDIT_CHIPS = [
+  ['放大', '放大'], ['縮小', '縮小'], ['粗體', '粗體'], ['置中', '置中'],
+  ['圓角', '圓角'], ['陰影', '加陰影'], ['背景藍', '背景改藍'], ['背景綠', '背景改綠'],
+  ['深色底', '背景改深色'], ['文字白', '文字改白色'], ['刪除', '刪除'],
+];
+function openBubble(selector, label, rect) {
+  window._selSelector = selector;
+  const bubble = document.getElementById('editBubble');
+  document.getElementById('ebTarget').textContent = '已選：' + label;
+  const chips = document.getElementById('ebChips');
+  chips.innerHTML = '';
+  EDIT_CHIPS.forEach(([lab, p]) => {
+    const c = document.createElement('span'); c.className = 'eb-chip'; c.textContent = lab;
+    c.onclick = () => applyPromptText(p);
+    chips.appendChild(c);
+  });
+  const inp = document.getElementById('ebInput'); inp.value = '';
+  const hint = document.getElementById('ebHint'); hint.className = 'eb-hint'; hint.textContent = '';
+  bubble.style.display = 'block';
+  // 定位（rect 為 iframe 內座標；stage 與 iframe 同起點）
+  const stage = document.getElementById('designPreviewStage');
+  const sw = stage.clientWidth, sh = stage.clientHeight;
+  const bw = bubble.offsetWidth, bh = bubble.offsetHeight;
+  let left = Math.max(6, Math.min(rect.left, sw - bw - 6));
+  let top = rect.bottom + 6;
+  if (top + bh > sh - 4) top = Math.max(4, rect.top - bh - 6);
+  bubble.style.left = left + 'px'; bubble.style.top = top + 'px';
+  setTimeout(() => inp.focus(), 30);
+}
+function closeBubble() {
+  const b = document.getElementById('editBubble'); if (b) b.style.display = 'none';
+  window._selSelector = null;
+  postToFrame({ type: 'deselect' });
+}
+function applyPrompt() { applyPromptText(document.getElementById('ebInput').value); }
+function applyPromptText(text) {
+  if (!window._selSelector || !text.trim()) return;
+  const label = document.getElementById('ebTarget').textContent.replace(/^已選：/, '');
+  let patch = findPatch(window._selSelector) || newPatch(window._selSelector, label);
+  const res = parsePrompt(text, patch);
+  const hint = document.getElementById('ebHint');
+  if (!res.matched) { hint.className = 'eb-hint warn'; hint.textContent = res.note; return; }
+  sendPatch(patch);
+  document.getElementById('ebInput').value = '';
+  hint.className = 'eb-hint ok'; hint.textContent = '✓ 已套用「' + text.trim() + '」，可繼續打下一個指令';
+  updateClearBtn();
+}
+function revertSelected() {
+  if (!window._selSelector) return;
+  const arr = getPatches(); const i = arr.findIndex(p => p.selector === window._selSelector);
+  if (i >= 0) arr.splice(i, 1);
+  closeBubble(); updateClearBtn();
+  reRenderPreview();
+}
+function clearAllPatches() {
+  window._patchStore[curPatchKey()] = [];
+  closeBubble(); updateClearBtn();
+  reRenderPreview();
+}
+function reRenderPreview() {
+  const f = document.getElementById('designPreviewFrame');
+  if (window._generatedVueCode) f.srcdoc = buildVuePreview(window._generatedVueCode);
+}
+
+// ── 來自 iframe 的訊息 ──
+window.addEventListener('message', (e) => {
+  const d = e.data; if (!d || d.__specEdit !== 1) return;
+  if (d.type === 'ready') {
+    postToFrame({ type: 'editMode', on: window._editMode });
+    reapplyAll(); updateClearBtn();
+  } else if (d.type === 'select') {
+    openBubble(d.selector, d.label, d.rect);
+  }
+});
+
+// camelCase 樣式物件 → CSS 字串
+function styleObjToCss(o) {
+  return Object.keys(o).map(k => k.replace(/[A-Z]/g, m => '-' + m.toLowerCase()) + ': ' + o[k] + ';').join(' ');
+}
+// 把某個工具的圈選修改，注入成 .vue 檔尾的 <style> 區塊
+function injectPatchCss(code, patches) {
+  if (!patches || !patches.length) return code;
+  const rules = []; let textNotes = 0;
+  patches.forEach(p => {
+    const styles = computeStyles(p);
+    const sel = p.selector.replace(/^#app\s*>\s*/, '');
+    if (sel && Object.keys(styles).length) rules.push('  ' + sel + ' { ' + styleObjToCss(styles) + ' }');
+    if (p.text != null && p.text !== '') textNotes++;
+  });
+  if (!rules.length && !textNotes) return code;
+  let block = '\n<style>\n/* ── 圈選微調（示意版面用；最終樣式請以設計稿為準）── */\n';
+  block += rules.join('\n') + '\n';
+  if (textNotes) block += '/* 註：另有 ' + textNotes + ' 處文字內容於預覽中手動修改，請於 <template> 對應調整 */\n';
+  block += '</style>\n';
+  const i = code.lastIndexOf('</style>');
+  return i >= 0 ? code.slice(0, i + 8) + '\n' + block + code.slice(i + 8) : code + block;
 }
 
 async function downloadDesignHtml() {
   const state = window._lastState;
   const tools = window._tools || [];
+  const tpl = window._selectedTemplate;
   const toVueName = (s) => {
     const m = extractSpecMeta(state, typeof s === 'object' ? s : null);
     return (m.entity && m.entity !== 'YourTable') ? m.entity
@@ -2987,10 +3299,11 @@ async function downloadDesignHtml() {
   // 多工具 → 全部 .vue 打包成 ZIP
   if (tools.length > 1) {
     const zip = new JSZip();
-    for (const tool of tools) {
-      const code = buildLocalVue(window._selectedTemplate, state, tool);
+    tools.forEach((tool, idx) => {
+      let code = buildLocalVue(tpl, state, tool);
+      code = injectPatchCss(code, window._patchStore[tpl + '|' + idx]);
       zip.file('views/' + toVueName(tool) + '.vue', code);
-    }
+    });
     const base = state ? state.fileName.replace(/\.[^.]+$/, '') : 'views';
     const blob = await zip.generateAsync({ type: 'blob' });
     const url  = URL.createObjectURL(blob);
@@ -3001,8 +3314,9 @@ async function downloadDesignHtml() {
     return;
   }
 
-  const code = window._generatedVueCode || '';
+  let code = window._generatedVueCode || '';
   if (!code) return;
+  code = injectPatchCss(code, window._patchStore[curPatchKey()]);
   const base  = state ? state.fileName.replace(/\.[^.]+$/, '') : 'AdminView';
   const name  = base.replace(/[^\w一-龥]+/g, ' ').trim().split(/\s+/)
                     .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('') || 'AdminView';
@@ -3042,8 +3356,68 @@ loadModule('/Component.vue', options)
     const app = window.Vue.createApp(comp);
     app.use(window.ElementPlus);
     app.mount('#app');
+    setTimeout(setupSpecEdit, 0);
   })
   .catch(e => { document.getElementById('err').textContent = '預覽編譯錯誤：\\n' + (e && e.message ? e.message : e); });
+
+// ── 圈選改圖：iframe 內的選取與套用 ──
+function setupSpecEdit() {
+  var editMode = false, hi = null;
+  function ensureHi() {
+    if (hi) return hi;
+    hi = document.createElement('div');
+    hi.style.cssText = 'position:fixed;z-index:2147483000;pointer-events:none;border:2px solid #409eff;background:rgba(64,158,255,.14);border-radius:4px;display:none;';
+    document.body.appendChild(hi); return hi;
+  }
+  function moveHi(el) {
+    var h = ensureHi(); if (!el) { h.style.display = 'none'; return; }
+    var r = el.getBoundingClientRect();
+    h.style.display = 'block'; h.style.left = r.left + 'px'; h.style.top = r.top + 'px';
+    h.style.width = r.width + 'px'; h.style.height = r.height + 'px';
+  }
+  function labelOf(el) {
+    var txt = (el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 18);
+    return txt ? ('「' + txt + '」') : el.tagName.toLowerCase();
+  }
+  function cssPath(el) {
+    if (!el || el.id === 'app' || el === document.body) return '#app';
+    var parts = [];
+    while (el && el.nodeType === 1 && el.id !== 'app' && el !== document.body) {
+      var sel = el.tagName.toLowerCase(), p = el.parentElement;
+      if (p) {
+        var same = Array.prototype.filter.call(p.children, function (c) { return c.tagName === el.tagName; });
+        if (same.length > 1) sel += ':nth-of-type(' + (same.indexOf(el) + 1) + ')';
+      }
+      parts.unshift(sel); el = p;
+      if (el && el.id === 'app') { parts.unshift('#app'); break; }
+    }
+    return parts.join(' > ');
+  }
+  document.addEventListener('mousemove', function (e) {
+    if (!editMode) return; var el = e.target; if (!el || el === hi) return; moveHi(el);
+  }, true);
+  document.addEventListener('click', function (e) {
+    if (!editMode) return; e.preventDefault(); e.stopPropagation();
+    var el = e.target; if (!el || el === hi) return;
+    var r = el.getBoundingClientRect();
+    parent.postMessage({ __specEdit: 1, type: 'select', selector: cssPath(el), label: labelOf(el),
+      rect: { left: r.left, top: r.top, bottom: r.bottom, right: r.right, width: r.width, height: r.height } }, '*');
+  }, true);
+  function applyPatch(d) {
+    var el = document.querySelector(d.selector); if (!el) return;
+    if (el._os === undefined) el._os = el.getAttribute('style') || '';
+    el.setAttribute('style', el._os);
+    var s = d.styles || {}; for (var k in s) el.style[k] = s[k];
+    if (d.text != null && d.text !== '') el.textContent = d.text;
+  }
+  window.addEventListener('message', function (e) {
+    var d = e.data; if (!d || d.__specEdit !== 1) return;
+    if (d.type === 'editMode') { editMode = d.on; if (!editMode) moveHi(null); document.body.style.cursor = editMode ? 'crosshair' : ''; }
+    else if (d.type === 'applyPatch') applyPatch(d);
+    else if (d.type === 'deselect') { moveHi(null); }
+  });
+  parent.postMessage({ __specEdit: 1, type: 'ready' }, '*');
+}
 <\/script>
 </body></html>`;
 }
