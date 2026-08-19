@@ -507,6 +507,26 @@ body {
   border-radius: 9px; padding: 15px 17px; margin-top: 12px;
 }
 
+/* 前端 skill 包 */
+.skill-tag {
+  font-size: 0.66rem; font-weight: 700; padding: 1px 7px; border-radius: 20px;
+  margin-left: 7px; vertical-align: middle;
+}
+.skill-tag.req { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
+.skill-tag.opt { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.skill-desc code {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+  padding: 0 4px; font-size: 0.72rem;
+}
+.fe-zone .skill-icon { opacity: 1; }
+.fe-rules {
+  margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border);
+  font-size: 0.73rem; color: var(--text2); line-height: 1.7;
+}
+.fe-rules b { color: var(--text); }
+.fe-rules .fr-head { font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.fe-rules ul { margin: 0; padding-left: 17px; }
+
 /* ── 圈選改圖 ─────────────────────────────────────────── */
 .design-tab.edit-on {
   background: var(--accent); color: #fff;
@@ -625,22 +645,44 @@ body {
   </div>
 
   <!-- Step 3: 放入 Skill -->
-  <div class="step-label" style="margin:24px 0 12px;"><span class="step-num">3</span> 放入 Skill 規範包（必要）</div>
+  <div class="step-label" style="margin:24px 0 12px;"><span class="step-num">3</span> 放入 Skill 規範包</div>
+
+  <!-- 3a 後端 skill 包（必要）-->
   <div class="skill-zone" id="skillZone">
     <input type="file" id="skillInput" accept=".zip" style="display:none;">
     <div class="skill-empty" id="skillEmpty">
       <span class="skill-icon">🧩</span>
       <div>
-        <div class="skill-title">點擊或拖曳 skill 包（.zip）到這裡</div>
-        <div class="skill-desc">載入團隊 .agents skill 規範（Controller / Repository / DTO 生成慣例），後端程式將依此產出。<b>三個步驟都完成後才會開始生成</b>；skill 包請向團隊技術負責人索取。</div>
+        <div class="skill-title">後端 Skill 包（.zip）<span class="skill-tag req">必要</span></div>
+        <div class="skill-desc">團隊 .agents 後端規範（Controller / Repository / DTO 慣例），後端程式將依此產出。<b>三個步驟都完成後才會開始生成</b>。</div>
       </div>
     </div>
     <div class="skill-loaded" id="skillLoaded" style="display:none;">
       <div class="skill-loaded-head">
-        <span>✅ 已載入 Skill 包：<b id="skillPackName"></b></span>
+        <span>✅ 已載入後端 Skill 包：<b id="skillPackName"></b></span>
         <button class="skill-remove" onclick="removeSkillPack(event)">✕ 移除</button>
       </div>
       <div class="skill-chips" id="skillChips"></div>
+    </div>
+  </div>
+
+  <!-- 3b 前端 skill 包（選用，載入後前端改依此規範產出）-->
+  <div class="skill-zone fe-zone" id="feSkillZone" style="margin-top:10px;">
+    <input type="file" id="feSkillInput" accept=".zip" style="display:none;">
+    <div class="skill-empty" id="feSkillEmpty">
+      <span class="skill-icon">🎨</span>
+      <div>
+        <div class="skill-title">前端 Skill 包（.zip）<span class="skill-tag opt">選用</span></div>
+        <div class="skill-desc">載入團隊前端 .agents 規範（如 <code>page-generate</code> / <code>nuxt-ui</code>）後，<b>前端不再產出獨立 Element Plus 檔，改依包內規範產出 Nuxt UI 頁面</b>（API composable、頁面 SFC、i18n、路由權限）。未放則維持現況。</div>
+      </div>
+    </div>
+    <div class="skill-loaded" id="feSkillLoaded" style="display:none;">
+      <div class="skill-loaded-head">
+        <span>✅ 已載入前端 Skill 包：<b id="feSkillPackName"></b></span>
+        <button class="skill-remove" onclick="removeFeSkillPack(event)">✕ 移除</button>
+      </div>
+      <div class="skill-chips" id="feSkillChips"></div>
+      <div class="fe-rules" id="feRules"></div>
     </div>
   </div>
 
@@ -2237,12 +2279,27 @@ function runLocalGeneration() {
   window._generatedVueCode = vueCode;
 
   wrap.style.display = 'block';
-  codePre.textContent = vueCode;
+  // 有前端 skill 包 → 程式碼分頁顯示依規範產出的 Nuxt 檔案（預覽仍為版面示意）
+  if (window._fePack) {
+    const files = buildNuxtFiles(state, tool);
+    window._nuxtFiles = files;
+    codePre.textContent = files.map(f =>
+      '════════ ' + f.path + ' ════════\n' + f.content).join('\n\n');
+  } else {
+    window._nuxtFiles = null;
+    codePre.textContent = vueCode;
+  }
   frame.srcdoc = buildVuePreview(vueCode);
   dot.className = 'ai-status-dot done'; dot.style.display = 'inline-block';
-  status.textContent = '生成完成 · ' + tpl.name + (tools.length > 1 ? `（${window._activeToolIdx + 1}/${tools.length}：${tool.name}）` : '');
+  status.textContent = '生成完成 · ' + (window._fePack ? '依前端 skill 規範（Nuxt UI）' : tpl.name)
+    + (tools.length > 1 ? `（${window._activeToolIdx + 1}/${tools.length}：${tool.name}）` : '');
   dlBtn.style.display = 'inline-block';
-  dlBtn.textContent = tools.length > 1 ? `⬇ 下載 .vue ZIP（${tools.length} 個）` : '⬇ 下載 .vue';
+  dlBtn.textContent = window._fePack ? '⬇ 下載前端交付包'
+    : (tools.length > 1 ? `⬇ 下載 .vue ZIP（${tools.length} 個）` : '⬇ 下載 .vue');
+  const mock = document.getElementById('mockStrip');
+  if (mock) mock.innerHTML = window._fePack
+    ? '⚠️ 下方預覽為<b>版面/欄位示意</b>（Element Plus 繪製）；實際交付程式碼為 <b>Nuxt UI</b>，依前端 skill 包規範產出，請切「程式碼」分頁查看'
+    : '⚠️ 預覽中的表格資料為<b>示意假資料</b>，僅供確認版面與欄位；實際資料由工程師串接後端後顯示';
   switchDesignTab('preview');
   closeBubble(); updateClearBtn();  // 圈選：切工具時同步狀態（patch 於 iframe ready 後自動重套）
 }
@@ -3056,6 +3113,527 @@ function switchDesignTab(tab) {
   }
 }
 
+// ─── 前端 Skill 包：解析 + 依包內規範產生 Nuxt UI 頁面 ────────────────────────
+window._fePack = null;
+
+// 讀 zip 內的文字檔（回傳 map: 短路徑 → 內容）
+async function readZipTexts(zip, re) {
+  const out = {};
+  const names = Object.keys(zip.files).filter(p => re.test(p) && !zip.files[p].dir);
+  // 統一換行為 \n：包內為 CRLF，否則後續 markdown 片段解析全會失敗
+  for (const p of names) out[p] = (await zip.files[p].async('string')).replace(/\r\n/g, '\n');
+  return out;
+}
+
+// 從 markdown 抽出「### <key> — <說明>」後的第一個 ```vue 程式碼區塊
+function extractSnippets(md) {
+  const out = {};
+  const re = /^###\s+([A-Za-z0-9-]+)\s+—\s*([^\n]*)\n+```vue\n([\s\S]*?)```/gm;
+  let m;
+  while ((m = re.exec(md)) !== null) {
+    if (!out[m[1]]) out[m[1]] = { title: m[2].trim(), code: m[3].replace(/\s+$/, '') };
+  }
+  return out;
+}
+// 抽出「## <標題>」後的第一個指定語言程式碼區塊
+function extractBlockAfter(md, headingRe, lang) {
+  const h = md.match(headingRe);
+  if (!h) return null;
+  const rest = md.slice(h.index + h[0].length);
+  const m = rest.match(new RegExp('```' + lang + '\\n([\\s\\S]*?)```'));
+  return m ? m[1].replace(/\s+$/, '') : null;
+}
+
+async function loadFeSkillPack(file) {
+  if (!/\.zip$/i.test(file.name)) { showError('前端 Skill 包請使用 .zip 格式'); return; }
+  try {
+    const zip = await JSZip.loadAsync(await file.arrayBuffer());
+    const skills = [];
+    for (const path of Object.keys(zip.files)) {
+      const sm = path.match(/skills\/([^/]+)\/SKILL\.md$/i);
+      if (sm) skills.push(sm[1]);
+    }
+    if (!skills.length) { showError('此 zip 內找不到任何 SKILL.md'); return; }
+
+    // 找 page-generate（頁面產生規範）
+    const pgKey = Object.keys(zip.files).find(p => /skills\/page-generate\/SKILL\.md$/i.test(p));
+    if (!pgKey) {
+      showError('前端包內找不到 page-generate skill；本工具需要它才能依規範產出頁面');
+      return;
+    }
+    const pgSkill = (await zip.files[pgKey].async('string')).replace(/\r\n/g, '\n');
+    const refs = await readZipTexts(zip, /skills\/page-generate\/references\/.+\.md$/i);
+    const pick = (name) => refs[Object.keys(refs).find(k => k.endsWith(name)) || ''] || '';
+    const tplMd  = pick('template-snippets.md');
+    const colMd  = pick('column-templates.md');
+    const setupMd= pick('page-setup.md');
+
+    // 1) 檔案路徑慣例（從 SKILL.md「總覽：頁面結構」清單解析）
+    const paths = {};
+    const pathPatterns = [
+      ['api',       /`(app\/composables\/api\/[^`]+)`/],
+      ['page',      /`(app\/pages\/admin\/[^`]+)`/],
+      ['i18nZh',    /`(i18n\/locales\/zh-TW\.yaml)`/],
+      ['i18nEn',    /`(en-US\.yaml)`/],
+      ['authority', /`(app\/constants\/routeAuthority\.ts)`/],
+      ['modal',     /`(app\/components\/[^`]+Modal\.vue)`/],
+    ];
+    pathPatterns.forEach(([k, re]) => { const m = pgSkill.match(re); if (m) paths[k] = m[1]; });
+
+    // 2) script 區塊清單（區塊表格）
+    const regions = [];
+    const regionRe = /^\|\s*\*{0,2}(\d+)\*{0,2}\s*\|\s*\*{0,2}([^|*]+?)\*{0,2}\s*\|\s*([^|]*?)\s*\|$/gm;
+    let rm;
+    while ((rm = regionRe.exec(pgSkill)) !== null) {
+      regions.push({ no: +rm[1], name: rm[2].trim(), optional: /選用/.test(rm[3]) });
+    }
+
+    // 3) Checklist（作為「已套用規範」清單來源）
+    const checklist = [];
+    const clSec = pgSkill.split(/^##\s+Checklist/m)[1] || '';
+    (clSec.match(/^- \[ \] .+$/gm) || []).forEach(l => checklist.push(l.replace(/^- \[ \] /, '').trim()));
+
+    // 4) 篩選欄位片段（直接沿用包內程式碼）
+    const snippets = extractSnippets(tplMd);
+    // 5) 表格骨架 / BaseTable 變體
+    const skeleton = extractBlockAfter(tplMd, /^##\s+骨架結構\s*$/m, 'vue');
+    const tableSimple = extractBlockAfter(tplMd.split(/^###\s+變體 B/m)[1] || '', /^/, 'vue');
+    // 6) column 格式模板（## N. 名稱）
+    const colFormats = (colMd.match(/^##\s+\d+\.\s+.+$/gm) || []).map(s => s.replace(/^##\s+/, ''));
+    // 7) i18n 保留字元規則
+    const i18nEscape = /保留字元/.test(setupMd || pgSkill);
+    // 8) Nuxt UI 可用元件
+    const uiComponents = Object.keys(zip.files)
+      .map(p => (p.match(/skills\/nuxt-ui\/components\/([^/]+)\.md$/i) || [])[1])
+      .filter(Boolean);
+    // 9) show-column-selector 門檻（從 checklist 文字取數字）
+    const scsRule = checklist.find(c => /show-column-selector/.test(c)) || '';
+    const scsThreshold = (scsRule.match(/≤\s*(\d+)/) || [])[1];
+    // 10) 操作欄寬度對照（1 顆 80／2 顆 112／3 顆 128）
+    const actRule = checklist.find(c => /min-w-\*/.test(c) && /顆/.test(c)) || '';
+
+    window._fePack = {
+      name: file.name, skills, paths, regions, checklist, snippets, skeleton, tableSimple,
+      colFormats, uiComponents, i18nEscape,
+      scsThreshold: scsThreshold ? +scsThreshold : 5,
+      actWidths: { 1: 80, 2: 112, 3: 128 },
+      hasActRule: !!actRule,
+    };
+
+    document.getElementById('feSkillEmpty').style.display = 'none';
+    document.getElementById('feSkillLoaded').style.display = 'block';
+    document.getElementById('feSkillPackName').textContent =
+      file.name + '（' + skills.length + ' 個 skill）';
+    document.getElementById('feSkillChips').innerHTML =
+      skills.map(s => `<span class="skill-chip">${s === 'page-generate' ? '⭐' : '🧩'} ${escapeHtml(s)}</span>`).join('');
+    renderFeRules();
+
+    showToast('🎨 前端 Skill 包已載入：前端改依 page-generate 規範產出');
+    if (!missingSteps().length) autoGenerateIfReady();
+  } catch (err) {
+    showError('前端 Skill 包解析失敗：' + err.message);
+  }
+}
+
+function renderFeRules() {
+  const p = window._fePack; const el = document.getElementById('feRules');
+  if (!p || !el) return;
+  const snipKeys = Object.keys(p.snippets);
+  el.innerHTML =
+    '<div class="fr-head">📖 已從包內讀取並將套用的規範</div><ul>' +
+    `<li>輸出路徑慣例：<b>${escapeHtml(p.paths.page || 'app/pages/admin/…')}</b>、<b>${escapeHtml(p.paths.api || 'app/composables/api/…')}</b></li>` +
+    `<li><b>${p.regions.length}</b> 個 <code>#region</code> 區塊架構（選用區塊視欄位自動取捨）</li>` +
+    `<li>篩選欄位片段 <b>${snipKeys.length}</b> 種：${snipKeys.map(escapeHtml).join('、') || '—'}（直接沿用包內程式碼）</li>` +
+    `<li>表格欄位格式模板 <b>${p.colFormats.length}</b> 種、Nuxt UI 元件 <b>${p.uiComponents.length}</b> 個</li>` +
+    `<li>Checklist <b>${p.checklist.length}</b> 條；已自動套用：<code>show-column-selector</code> 門檻 ≤${p.scsThreshold}、i18n 保留字元轉義${p.hasActRule ? '、操作欄寬度對照' : ''}</li>` +
+    '</ul>';
+}
+
+function removeFeSkillPack(e) {
+  if (e) e.stopPropagation();
+  window._fePack = null;
+  const inp = document.getElementById('feSkillInput'); if (inp) inp.value = '';
+  document.getElementById('feSkillEmpty').style.display = 'flex';
+  document.getElementById('feSkillLoaded').style.display = 'none';
+  showToast('已移除前端 Skill 包，前端恢復為 Element Plus 預覽版');
+  if (!missingSteps().length) autoGenerateIfReady();
+}
+
+// ─── 依 page-generate 規範產生 Nuxt UI 檔案 ────────────────────────────────
+function feNaming(state, tool) {
+  const m = extractSpecMeta(state, tool);
+  const entity = (m.entity && m.entity !== 'YourTable') ? m.entity : 'AdminList';
+  const kebab = m.kebab || entity.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+  const section = (m.domain || 'admin').toLowerCase();
+  const snake = kebab.replace(/-/g, '_');
+  return { meta: m, entity, kebab, section, snake, UPPER: (m.moduleName || snake.toUpperCase()) };
+}
+// vue-i18n 保留字元轉義（規範：@ | { } → {'x'}，整個值加雙引號）
+function i18nSafe(s) {
+  const t = String(s == null ? '' : s);
+  const esc = t.replace(/[@|{}]/g, c => `{'${c}'}`);
+  return /[@|{}]/.test(t) ? `"${esc}"` : esc;
+}
+// 依欄位推斷篩選 UI 類型（對應包內 snippet key）
+function feFilterKind(p) {
+  const c = (p.col || '') + ' ' + (p.dbName || '');
+  if (/時間|日期|Time|Date/i.test(c)) return 'date-range';
+  if (/類型|狀態|種類|幣別|平台|館|Type|Status|Kind|Currency/i.test(c)) return 'single-select';
+  if (/數量|金額|次數|等級|Amount|Count|Level|Qty|No$/i.test(c)) return 'input-number';
+  return 'input';
+}
+function fePascal(s) {
+  return String(s || '').split(/[_\s-]+/).filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('') || 'Field';
+}
+
+function buildNuxtFiles(state, tool) {
+  const pack = window._fePack;
+  const n = feNaming(state, tool);
+  const props = (n.meta.props || []).filter(p => p && p.col);
+  const P = n.entity;                       // PascalCase 名稱
+  const camelP = P.charAt(0).toLowerCase() + P.slice(1);   // camelCase（變數命名用）
+  const zhTitle = (tool && tool.name) || n.entity;
+
+  // 篩選欄位：日期範圍最多一組，其餘取前 3 個
+  const dateProp = props.find(p => feFilterKind(p) === 'date-range');
+  const others = props.filter(p => p !== dateProp && feFilterKind(p) !== 'date-range').slice(0, 3);
+  const hasDate = !!dateProp;
+  const hasSelect = others.some(p => feFilterKind(p) === 'single-select');
+
+  // ── 1. API composable ──
+  const paramLines = [];
+  if (hasDate) { paramLines.push('  StartDatetime: number', '  EndDatetime: number'); }
+  others.forEach(p => {
+    const k = feFilterKind(p), nm = fePascal(p.dbName || p.col);
+    paramLines.push('  ' + nm + '?: ' + (k === 'input-number' ? 'number' : 'string'));
+  });
+  const itemLines = props.map(p => '  ' + fePascal(p.dbName || p.col) + ': string | number  // ' + p.col);
+
+  const api = [
+    '// ' + (pack.paths.api || 'app/composables/api/<domain>.ts').replace('<domain>', n.section),
+    hasDate ? "import { subtractOneSecondFromTimestamp } from '~/utils/date'\n" : '',
+    '// #region ' + zhTitle,
+    'export type Get' + P + 'Params = {',
+    '  PageSize: number',
+    '  Page: number',
+    '  Sort?: string',
+    ...paramLines,
+    '}',
+    '',
+    'export type ' + P + 'Item = {',
+    ...itemLines,
+    '}',
+    '',
+    'type Get' + P + 'Response = {',
+    '  Items: ' + P + 'Item[]',
+    '  Page: number',
+    '  PageSize: number',
+    '  Total: number',
+    '}',
+    '',
+    'export const USE_GET_' + n.UPPER + " = 'USE_GET_" + n.UPPER + "'",
+    '',
+    'export function useGet' + P + '(params: MaybeRefOrGetter<Get' + P + 'Params>) {',
+    '  const paramsRef = toRef(params)',
+    '',
+    '  return useAsyncData(',
+    '    () => `${USE_GET_' + n.UPPER + '}-${safeStringify(paramsRef.value)}`,',
+    "    () => useProjectAuthApi<Get" + P + "Response>('/" + n.section + '/' + n.kebab + "', {",
+    "      method: 'GET',",
+    '      query: paramsRef.value' + (hasDate ? '' : ','),
+    ...(hasDate ? [
+      '        ? {',
+      '            ...paramsRef.value,',
+      '            EndDatetime: subtractOneSecondFromTimestamp(paramsRef.value.EndDatetime),',
+      '          }',
+      '        : undefined,',
+    ] : []),
+    '    }),',
+    '    useAsyncDataOptions({',
+    '      immediate: false,',
+    '      transform: (data) => {',
+    '        return { ...data?.Data, DataTime: data?.DataTime }',
+    '      },',
+    '    }),',
+    '  )',
+    '}',
+    '// #endregion',
+    '',
+  ].filter(l => l !== '').join('\n');
+
+  // ── 2. 頁面 SFC ──
+  const i18nBase = 'page.' + n.section + '.' + n.snake;
+  const defaults = [];
+  if (hasDate) {
+    defaults.push('  StartDatetime: startOfDay(new Date()).getTime(),');
+    defaults.push('  EndDatetime: startOfDay(addDays(new Date(), 1)).getTime(),');
+  }
+  others.forEach(p => {
+    const k = feFilterKind(p), nm = fePascal(p.dbName || p.col);
+    defaults.push('  ' + nm + ': ' + (k === 'input-number' ? 'undefined' : "''") + ',');
+  });
+  const schemaLines = [];
+  if (hasDate) { schemaLines.push('  StartDatetime: v.number(),', '  EndDatetime: v.number(),'); }
+  others.forEach(p => {
+    const k = feFilterKind(p), nm = fePascal(p.dbName || p.col);
+    schemaLines.push('  ' + nm + ': ' + (k === 'input-number' ? 'v.optional(v.number())' : 'v.optional(v.string())') + ',');
+  });
+
+  // columns：日期→formatTimestampWithTZ、金額/數量→BaseTableTdContent、其餘純值
+  let usesDateFmt = false, usesTdContent = false;
+  const colDefs = props.map(p => {
+    const f = fePascal(p.dbName || p.col);
+    const key = i18nBase + '.' + (p.dbName || f).toLowerCase();
+    const both = (p.col || '') + (p.dbName || '');
+    const isDate = /時間|日期|Time|Date/i.test(both);
+    // 幣別/Currency 是代碼字串，不套數值格式元件
+    const isCode = /幣別|币别|Currency|類型|狀態|Type|Status/i.test(both);
+    const isNum  = !isCode && /金額|數量|次數|得分|押注|贏分|Amount|Count|Money|Win|Bet|Value|Total|Odds/i.test(both);
+    if (isDate) usesDateFmt = true;
+    if (isNum) usesTdContent = true;
+    const cell = isDate
+      ? "    cell: ({ row }) => formatTimestampWithTZ(row.original." + f + ", Number(timeZone.value)),"
+      : isNum
+        ? "    cell: ({ row }) => h(BaseTableTdContent, { content: row.original." + f + " }),"
+        : null;
+    return [
+      '  {',
+      "    accessorKey: '" + f + "',",
+      "    header: t('" + key + "'),",
+      ...(cell ? [cell] : []),
+      "    meta: { class: { th: 'min-w-30' } },",
+      '  },',
+    ].join('\n');
+  }).join('\n');
+
+  // 篩選 template：直接沿用包內 snippet，只替換占位符
+  const fillSnippet = (kind, p) => {
+    const s = pack.snippets[kind];
+    const nm = fePascal(p.dbName || p.col);
+    const key = i18nBase + '.' + (p.dbName || nm).toLowerCase();
+    if (!s) return '';
+    return s.code
+      .replace(/<i18n key>/g, key)
+      .replace(/<fieldName>/g, nm)
+      .replace(/<optionData>/g, nm.charAt(0).toLowerCase() + nm.slice(1) + 'Options')
+      .split('\n').map(l => l ? '          ' + l : l).join('\n');
+  };
+  const filterBlocks = [];
+  if (hasDate) filterBlocks.push(fillSnippet('date-range', dateProp));
+  others.forEach(p => filterBlocks.push(fillSnippet(feFilterKind(p), p)));
+
+  const colCount = props.length;
+  const showColSelector = colCount <= pack.scsThreshold ? '\n        :show-column-selector="false"' : '';
+
+  // 只 import 實際用到的，避免 lint no-unused-vars
+  const needTz = usesDateFmt || hasDate;
+  const imports = [
+    hasDate ? "import type { CalendarDateTime } from '@internationalized/date'" : '',
+    "import type { FormSubmitEvent, TableColumn } from '@nuxt/ui'",
+    "import type { Get" + P + "Params, " + P + "Item } from '~/composables/api/" + n.section + "'",
+    hasDate ? "import { addDays, startOfDay } from 'date-fns'" : '',
+    "import * as v from 'valibot'",
+    "import { useGet" + P + " } from '~/composables/api/" + n.section + "'",
+    needTz ? "import { useTimeZone } from '~/composables/useTimeZone'" : '',
+    hasDate ? "import { calendarDateTimeToTimestamp, localTimestampToTimestampWithTZ, timestampToCalendarDateTime } from '~/utils/date'" : '',
+    "import { replace } from '~/utils/defuExtend'",
+    usesDateFmt ? "import { formatTimestampWithTZ } from '~/utils/format'" : '',
+    "import { decodeQueryParams, encodeQueryParams } from '~/utils/routeQuery'",
+  ].filter(Boolean).join('\n');
+
+  const page = `<!-- ${(pack.paths.page || 'app/pages/admin/<section>/<page>.vue').replace('<section>', n.section).replace('<page>', n.kebab)} -->
+<script setup lang="ts">
+${imports}
+
+const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
+
+const isFilterOpen = ref(false)
+${usesTdContent ? "const BaseTableTdContent = resolveComponent('BaseTableTdContent')\n" : ''}${needTz ? '\nconst { timeZone } = useTimeZone()\n' : ''}
+// #region 頁面載入時一次性解碼 route.query.q
+const initialQuery = decodeQueryParams<Get${P}Params>(route.query.q)
+// #endregion
+
+// #region 搜尋預設值常數
+const searchDefaultValue = ref<Get${P}Params>({
+  PageSize: 100,
+  Page: 1,
+${defaults.join('\n')}
+})
+// #endregion
+
+// #region 搜尋欄位 型別驗證
+const schema = v.object({
+${schemaLines.join('\n')}
+  Sort: v.optional(v.string()),
+  Page: v.number(),
+  PageSize: v.number(),
+})
+
+type Schema = v.InferOutput<typeof schema>
+// #endregion
+
+// #region 搜尋欄位 資料(含初始化設置)
+const state = ref<Schema>(replace({ ...initialQuery }, searchDefaultValue.value))
+// #endregion
+${hasDate ? `
+// #region 日期範圍處理（用於 BaseDateRangePicker）
+const dateRange = computed({
+  get: () => ({
+    start: timestampToCalendarDateTime(state.value.StartDatetime),
+    end: timestampToCalendarDateTime(state.value.EndDatetime),
+  }),
+  set: (newValue: { start?: CalendarDateTime, end?: CalendarDateTime }) => {
+    if (newValue.start && newValue.end) {
+      state.value.StartDatetime = calendarDateTimeToTimestamp(newValue.start)
+      state.value.EndDatetime = calendarDateTimeToTimestamp(newValue.end)
+    }
+  },
+})
+// #endregion
+` : ''}
+// #region API 參數快照
+function buildApiParams(): Get${P}Params {
+  return {
+    ...state.value,${hasDate ? `
+    StartDatetime: localTimestampToTimestampWithTZ(state.value.StartDatetime, timeZone.value),
+    EndDatetime: localTimestampToTimestampWithTZ(state.value.EndDatetime, timeZone.value),` : ''}
+  }
+}
+
+const apiParams = ref(buildApiParams())
+// #endregion
+
+// #region 表格所需 api 資料
+const { data: ${camelP}Data, refresh: refresh${P}Data, pending: ${camelP}Pending } = useGet${P}(apiParams)
+// #endregion
+
+// #region 提交狀態（更新 apiParams 快照 + 同步路由）
+function commitState() {
+  apiParams.value = buildApiParams()
+  router.push({ query: { q: encodeQueryParams(state.value) } })
+}
+// #endregion
+
+// #region API 觸發
+watchImmediate(apiParams, () => refresh${P}Data())
+// #endregion
+
+// #region 搜尋事件
+function handleSubmit(_event: FormSubmitEvent<Schema>) {
+  isFilterOpen.value = false
+  state.value.Page = 1
+  commitState()
+}
+// #endregion
+
+// #region 重置搜尋框 事件
+function handleReset() {
+  isFilterOpen.value = false
+  state.value = {
+    ...searchDefaultValue.value,
+    PageSize: state.value.PageSize,
+  }
+  commitState()
+}
+// #endregion
+
+// #region 分頁事件
+function handlePageChange(page: number) {
+  state.value.Page = page
+  commitState()
+}
+function handlePageSizeChange(pageSize: number) {
+  state.value.PageSize = pageSize
+  state.value.Page = 1
+  commitState()
+}
+// #endregion
+
+// #region UTable columns 定義
+const columns: TableColumn<${P}Item>[] = [
+${colDefs}
+]
+// #endregion
+
+useSeoMeta({ title: t('${i18nBase}.title') })
+<\/script>
+
+<template>
+  <UDashboardPanel>
+    <template #header>
+      <BaseHeaderNavbar :title="t('${i18nBase}.title')" />
+    </template>
+
+    <template #body>
+      <div class="flex gap-5">
+        <BaseSearchWrap
+          v-model:open="isFilterOpen"
+          :schema="schema"
+          :state="state"
+          @submit="handleSubmit"
+          @reset="handleReset"
+        >
+${filterBlocks.filter(Boolean).join('\n')}
+        </BaseSearchWrap>
+      </div>
+
+      <BaseTable${showColSelector}
+        :table-props="{
+          data: ${camelP}Data?.Items ?? [],
+          loading: ${camelP}Pending,
+          columns,
+          sticky: true,
+          empty: t('system.table.no_data'),
+        }"
+        :pagination-props="{
+          total: ${camelP}Data?.Total ?? 0,
+          defaultPageSize: 100,
+        }"
+        :page="state.Page"
+        :page-size="state.PageSize"
+        @update:page="handlePageChange"
+        @update:page-size="handlePageSizeChange"
+      />
+    </template>
+  </UDashboardPanel>
+</template>
+`;
+
+  // ── 3. i18n（依規範轉義保留字元）──
+  const i18nRows = props.map(p => '      ' + (p.dbName || fePascal(p.col)).toLowerCase() + ': ' + i18nSafe(p.col)).join('\n');
+  const zh = `# ${pack.paths.i18nZh || 'i18n/locales/zh-TW.yaml'}（插入 page: 區塊的 not_found 之前）
+page:
+  ${n.section}:
+    ${n.snake}:
+      title: ${i18nSafe(zhTitle)}
+      table_title: ${i18nSafe(zhTitle)}
+${i18nRows}
+`;
+  const en = `# i18n/locales/en-US.yaml（插入 page: 區塊的 not_found 之前）
+page:
+  ${n.section}:
+    ${n.snake}:
+      title: ${n.entity}
+      table_title: ${n.entity}
+${props.map(p => '      ' + (p.dbName || fePascal(p.col)).toLowerCase() + ': ' + fePascal(p.dbName || p.col)).join('\n')}
+`;
+
+  const auth = `// ${pack.paths.authority || 'app/constants/routeAuthority.ts'} → ROUTE_AUTHORITY_MAP 內新增
+'admin-${n.section}-${n.kebab}': '${n.UPPER}.${n.UPPER}_BROWSER',
+`;
+
+  return [
+    { path: (pack.paths.api || 'app/composables/api/<domain>.ts').replace('<domain>', n.section), content: api, lang: 'ts' },
+    { path: (pack.paths.page || 'app/pages/admin/<section>/<page>.vue').replace('<section>', n.section).replace('<page>', n.kebab), content: page, lang: 'vue' },
+    { path: 'i18n/locales/zh-TW.yaml', content: zh, lang: 'yaml' },
+    { path: 'i18n/locales/en-US.yaml', content: en, lang: 'yaml' },
+    { path: 'app/constants/routeAuthority.ts', content: auth, lang: 'ts' },
+  ];
+}
+
 // ─── 圈選改圖（離線規則引擎）────────────────────────────────────────────────
 window._editMode = false;
 window._patchStore = {};          // key: `${tpl}|${toolIdx}` → [patch]
@@ -3296,6 +3874,53 @@ async function downloadDesignHtml() {
       : String(typeof s === 'object' ? s.name : s).replace(/[^\w一-龥]+/g, '').slice(0, 40) || 'AdminView';
   };
 
+  // 有前端 skill 包 → 依 page-generate 規範打包（多檔案，非單一 .vue）
+  if (window._fePack) {
+    const zip = new JSZip();
+    const apiBuckets = {};   // 同 domain 的 API composable 依規範「追加至末端」，不可覆蓋
+    tools.forEach(tool => {
+      buildNuxtFiles(state, tool).forEach(f => {
+        if (/composables\/api\//.test(f.path)) {
+          (apiBuckets[f.path] = apiBuckets[f.path] || []).push(f.content);
+          return;
+        }
+        // i18n / routeAuthority 為片段，多工具時分工具存放避免覆蓋
+        const multi = tools.length > 1 && /\.(yaml|ts)$/.test(f.path);
+        zip.file(multi ? '_fragments/' + toVueName(tool) + '/' + f.path : f.path, f.content);
+      });
+    });
+    Object.keys(apiBuckets).forEach(path => {
+      const parts = apiBuckets[path];
+      // 第一份保留檔頭註解，其餘只取 #region 之後的內容再串接
+      const merged = parts.map((c, i) => {
+        if (i === 0) return c;
+        const at = c.indexOf('// #region');
+        return at >= 0 ? c.slice(at) : c;
+      }).join('\n');
+      zip.file(path, merged);
+    });
+    zip.file('README.md',
+      '# 前端交付包（依 ' + window._fePack.name + ' 規範產出）\n\n' +
+      '技術棧：Nuxt + Nuxt UI + Tailwind v4，遵循 `page-generate` skill。\n\n' +
+      '## 檔案\n' +
+      '- `app/composables/api/*.ts` — API composable（`useProjectAuthApi` + `useAsyncData`，`immediate: false`）\n' +
+      '- `app/pages/admin/**/*.vue` — 頁面 SFC（`#region` 區塊架構、`commitState()` 提交點、`watchImmediate` 觸發）\n' +
+      '- `i18n/locales/*.yaml` — 翻譯片段，請插入既有 `page:` 區塊的 `not_found` **之前**\n' +
+      '- `app/constants/routeAuthority.ts` — 路由權限片段\n\n' +
+      '## 注意\n' +
+      '- 側邊選單由後端 `useGetToolMenu()` 提供，**不要**改 `app/layouts/default.vue`，請後端補選單項目。\n' +
+      '- 進專案後請執行 `pnpm lint:fix`、`pnpm typecheck`；有改 i18n 請跑 `pnpm build` 驗證保留字元。\n' +
+      '- 欄位型別/API 路徑為依規格書推導，請對照規格書確認後調整。\n');
+    const base = state ? state.fileName.replace(/\.[^.]+$/, '') : 'frontend';
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = base + '_nuxt.zip'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    showToast('⬇ 已依前端 skill 規範打包（' + tools.length + ' 個工具）');
+    return;
+  }
+
   // 多工具 → 全部 .vue 打包成 ZIP
   if (tools.length > 1) {
     const zip = new JSZip();
@@ -3480,6 +4105,21 @@ skillZone.addEventListener('click', e => {
   skillInput.click();
 });
 skillInput.addEventListener('change', e => { if (e.target.files[0]) loadSkillPack(e.target.files[0]); });
+
+// 前端 skill 包（選用）
+const feSkillZone  = document.getElementById('feSkillZone');
+const feSkillInput = document.getElementById('feSkillInput');
+feSkillZone.addEventListener('click', () => { if (!window._fePack) feSkillInput.click(); });
+feSkillInput.addEventListener('change', e => { if (e.target.files[0]) loadFeSkillPack(e.target.files[0]); });
+feSkillZone.addEventListener('dragenter', e => { e.preventDefault(); feSkillZone.classList.add('drag-over'); });
+feSkillZone.addEventListener('dragover',  e => { e.preventDefault(); feSkillZone.classList.add('drag-over'); });
+feSkillZone.addEventListener('dragleave', e => { if (!feSkillZone.contains(e.relatedTarget)) feSkillZone.classList.remove('drag-over'); });
+feSkillZone.addEventListener('drop', e => {
+  e.preventDefault(); e.stopPropagation();
+  feSkillZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) loadFeSkillPack(f);
+});
 skillZone.addEventListener('dragenter', e => { e.preventDefault(); skillZone.classList.add('drag-over'); });
 skillZone.addEventListener('dragover',  e => { e.preventDefault(); skillZone.classList.add('drag-over'); });
 skillZone.addEventListener('dragleave', e => {
