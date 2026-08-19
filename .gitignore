@@ -12,7 +12,13 @@ admin3.jpg
 
 # 團隊內部 skill 規範包（不進公開 repo）
 skills.zip
+*.agents.zip
+
+# 錄影／示範影片（體積大，不進版控）
+*.mp4
 
 # 暫存
 *.tmp
 _test_spec.*
+_eval*.xlsx
+_srv.cjs
