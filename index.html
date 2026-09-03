@@ -1968,6 +1968,51 @@ function sanitizeLabel(s) {
 }
 
 // 明確欄位定義表：「欄位名稱 | 欄位說明」後接 [field] | 中文說明（取第一組 = 主表）
+// 對照表型欄位定義：「畫面欄位 | 規則/說明 | 對應資料表欄位」
+// 真實 DB 欄名在另一欄（不一定是第一欄），沒支援的話只能靠字典猜英文欄名，
+// 而設定檔的 Field 必須等於真實 DB 欄位，猜錯該欄就查不到資料。
+function extractMappedFieldPairs(text) {
+  const lines = text.split(/\r?\n/);
+  const LABEL_RE = /^(畫面欄位|顯示欄位|表格欄位|欄位名稱|欄位)$/;
+  const DB_RE = /^(對應資料表欄位|對應欄位|資料表欄位|對應DB欄位|DB欄位|實際欄位)$/;
+  const isIdent = s => /^[A-Za-z_][A-Za-z0-9_]*$/.test(s);
+
+  for (let i = 0; i < lines.length; i++) {
+    const segs = lines[i].split('|').map(s => s.trim());
+    let li = -1, di = -1;
+    segs.forEach((s, ix) => {
+      if (li < 0 && LABEL_RE.test(s)) li = ix;
+      if (di < 0 && DB_RE.test(s)) di = ix;
+    });
+    if (li < 0 || di < 0 || li === di) continue;
+
+    const out = [];
+    let miss = 0;
+    for (let j = i + 1; j < lines.length; j++) {
+      const c = lines[j].split('|').map(s => s.trim());
+      const label = c[li] || '', db = c[di] || '';
+      if (!label && !db) { if (++miss >= 3) break; continue; }
+      if (LABEL_RE.test(label)) break;                    // 下一張表的表頭
+      // 衍生欄／查詢層計算／註明不顯示的，都不是可查的 DB 欄位
+      if (!db || /查詢層計算|衍生|非\s*DB/.test(db) || /不顯示/.test(label)) { miss = 0; continue; }
+      const dbs  = db.split(/\s*[\/／]\s*/).map(s => s.trim()).filter(isIdent);
+      const labs = label.split(/\s*[\/／]\s*/).map(s => s.trim()).filter(Boolean);
+      if (!dbs.length) { miss = 0; continue; }
+      if (dbs.length > 1 && labs.length === dbs.length) {
+        // 成對：「額度異動 / 額度餘額」↔「quotaChange / quotaAfter」
+        dbs.forEach((d, k) => out.push({ field: d, desc: sanitizeLabel(labs[k]) || d }));
+      } else if (dbs.length > 1) {
+        dbs.forEach(d => out.push({ field: d, desc: sanitizeLabel(label + '(' + d + ')') || d }));
+      } else {
+        out.push({ field: dbs[0], desc: sanitizeLabel(label) || dbs[0] });
+      }
+      miss = 0;
+    }
+    if (out.length >= 3) return out;
+  }
+  return [];
+}
+
 function extractFieldPairs(text) {
   const lines = text.split(/\r?\n/);
   const pairs = [];
@@ -2078,7 +2123,12 @@ function extractSpecMeta(state, tool) {
   const text = (tool && tool.flatText) || state.flatText || '';
 
   // 優先使用明確欄位定義表（Excel 規格常見格式）
-  const pairs = extractFieldPairs(text);
+  // 先找標準的「欄位名稱｜欄位說明」表；沒有就找「畫面欄位…對應資料表欄位」對照表
+  let pairs = extractFieldPairs(text);
+  if (pairs.length < 3) {
+    const mapped = extractMappedFieldPairs(text);
+    if (mapped.length >= 3) pairs = mapped;
+  }
   const pascalField = s => s.split(/[_\s-]+/).filter(Boolean)
     .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
   const columns = pairs.length >= 3 ? pairs.map(p => p.desc)
@@ -2232,27 +2282,42 @@ function matchConnection(dbName, hintText) {
 
   const scored = pack.connections.map(c => {
     const n = norm(c);
+    const hit = parts.filter(p => n.includes(p)).length;
+    const full = parts.length > 0 && hit === parts.length;   // 涵蓋資料庫名稱的「所有」詞
     let score = 0;
-    if (n === target) score = 100;                       // 完全相符
+    if (n === target) score = 100;
+    else if (full) score = 80;
     else if (n.includes(target) || target.includes(n)) score = 60;
-    else {
-      const hit = parts.filter(p => n.includes(p)).length;
-      if (hit) score = hit * 15;
-    }
-    if (hintText && score > 0) {
-      const extra = (String(c).match(/[A-Z][a-z0-9]*/g) || [])
-        .filter(w => w.length > 2 && new RegExp(w, 'i').test(hintText));
-      score += extra.length * 3;
-    }
-    return { c, score };
+    else if (hit) score = hit * 15;
+    return { c, score, full };
   }).filter(x => x.score > 0).sort((a, b) => b.score - a.score);
 
-  if (!scored.length) return { value: null, candidates: [] };
-  // 只有「正規化後完全相符且唯一」才自動採用。模糊分數高低不等於有把握——
-  // 規範明講挑不出唯一候選就列清單交人決定，猜錯連線=接到錯的資料庫，代價太高。
+  if (!scored.length) return { value: null, candidates: [], reason: 'none' };
+
+  // 自動採用的條件（由嚴到寬，都要求「唯一」）：
+  //   1. 正規化後完全相符
+  //   2. 唯一一個涵蓋資料庫名稱所有詞的候選
+  //      例：GameTower3_Log → game/tower3/log 三詞全中的只有 GameTower3LogTmd，
+  //          其餘 GameTowerLogTmd 等都缺 tower3，不算。
+  // 只是「分數比較高」不算有把握——猜錯連線 = 接到錯的資料庫，一律列候選交人決定。
   const exact = scored.filter(x => x.score === 100);
-  if (exact.length === 1) return { value: exact[0].c, candidates: [] };
-  return { value: null, candidates: scored.slice(0, 5).map(x => x.c) };
+  if (exact.length === 1) return { value: exact[0].c, candidates: [], reason: 'exact' };
+
+  const fulls = scored.filter(x => x.full);
+  if (fulls.length === 1) {
+    // 候選比資料庫名稱「多出來」的詞通常是品牌/環境後綴（GameTower3_Log → GameTower3LogTmd 的 Tmd）。
+    // 同一個 DB 名稱在不同品牌是不同連線，所以多出來的詞一定要在文件裡找得到佐證才敢自動填。
+    const extra = words(fulls[0].c).filter(w => w.length > 2 && !parts.some(p => w.includes(p) || p.includes(w)));
+    const ok = extra.every(w => new RegExp(w, 'i').test(hintText || ''));
+    if (ok) return { value: fulls[0].c, candidates: [], reason: extra.length ? 'allWordsCorroborated' : 'allWords' };
+    return { value: null, candidates: scored.slice(0, 5).map(x => x.c), reason: 'brand', brandHint: extra.join('/') };
+  }
+  return {
+    value: null,
+    candidates: scored.slice(0, 5).map(x => x.c),
+    // 有多個全中 → 真的分不出來；沒有半個全中 → 快照可能沒這條連線
+    reason: fulls.length > 1 ? 'ambiguous' : 'partial',
+  };
 }
 
 // ── 依欄位推斷 Operator / 是否適合當搜尋條件 ──
@@ -2308,15 +2373,26 @@ function buildQueryToolConfig(state, tool) {
 
   // 1) 連線識別碼
   const hasTable = meta.table && meta.table !== 'YourTable';
-  const conn = matchConnection(meta.db, text);
+  // 品牌線索常寫在別的分頁（例如總覽頁寫 GameTower2_TMD），所以用整份文件當佐證來源
+  const conn = matchConnection(meta.db, (state.flatText || '') + '\n' + text);
   let mainConnection;
   if (conn.value) {
     mainConnection = conn.value;
-    rows.push([`資料來源「${meta.db}」`, `MainConnection=<code>${escapeHtml(conn.value)}</code>`, 'ok', '快照比對成功']);
+    const how = conn.reason === 'exact' ? '名稱完全相符' : '唯一涵蓋「' + meta.db + '」所有關鍵詞的連線';
+    rows.push([`資料來源「${escapeHtml(meta.db)}」`, `MainConnection=<code>${escapeHtml(conn.value)}</code>`, 'ok', how]);
   } else if (conn.candidates.length) {
     mainConnection = 'TODO_連線待確認';
-    todos.push(`<b>MainConnection</b>：規格書寫「${escapeHtml(meta.db)}」，快照有多個相近候選 <code>${conn.candidates.map(escapeHtml).join('</code>／<code>')}</code>，請工程師確認要用哪一個`);
-    rows.push([`資料來源「${escapeHtml(meta.db)}」`, 'MainConnection=<code>TODO_連線待確認</code>', 'warn', '候選：' + conn.candidates.map(escapeHtml).join('、')]);
+    if (conn.reason === 'brand') {
+      todos.push(`<b>MainConnection</b>：規格書寫「${escapeHtml(meta.db)}」，快照最接近的是 <code>${escapeHtml(conn.candidates[0])}</code>，但它多了「<b>${escapeHtml(conn.brandHint)}</b>」這個品牌/環境後綴，而文件裡找不到佐證。<b>同一個資料庫名稱在不同品牌是不同連線</b>，請工程師確認本工具屬於哪個品牌（其餘候選：<code>${conn.candidates.slice(1).map(escapeHtml).join('</code>／<code>') || '無'}</code>）`);
+      rows.push([`資料來源「${escapeHtml(meta.db)}」`, 'MainConnection=<code>TODO_連線待確認</code>', 'warn',
+        `最接近 ${escapeHtml(conn.candidates[0])}，但品牌後綴「${escapeHtml(conn.brandHint)}」文件未提及`]);
+    } else if (conn.reason === 'ambiguous') {
+      todos.push(`<b>MainConnection</b>：規格書寫「${escapeHtml(meta.db)}」，快照有<b>多個同樣吻合</b>的候選 <code>${conn.candidates.map(escapeHtml).join('</code>／<code>')}</code>，分不出唯一解，請工程師指定`);
+      rows.push([`資料來源「${escapeHtml(meta.db)}」`, 'MainConnection=<code>TODO_連線待確認</code>', 'warn', '多個同樣吻合：' + conn.candidates.map(escapeHtml).join('、')]);
+    } else {
+      todos.push(`<b>MainConnection</b>：規格書寫「${escapeHtml(meta.db)}」，但 ${pack.snapDate} 的快照裡<b>沒有完全對應的連線</b>（最相近：<code>${conn.candidates.map(escapeHtml).join('</code>／<code>')}</code>）。可能是新連線或快照過期，請工程師確認，<b>勿自行沿用相近的那一個</b>`);
+      rows.push([`資料來源「${escapeHtml(meta.db)}」`, 'MainConnection=<code>TODO_連線待確認</code>', 'warn', '快照無完全對應，最相近：' + conn.candidates.map(escapeHtml).join('、')]);
+    }
   } else {
     mainConnection = 'TODO_未指定資料來源';
     todos.push(`<b>MainConnection</b>：規格書未寫出可辨識的資料庫/連線，或不在 ${pack.snapDate} 的快照內，需工程師確認實際連線識別碼`);
