@@ -519,10 +519,14 @@ body {
   padding: 0 4px; font-size: 0.72rem;
 }
 .fe-zone .skill-icon { opacity: 1; }
+.skill-zone.builtin { cursor: default; }
+.skill-zone.builtin:hover { border-color: var(--border); background: var(--surface2); }
 .fe-rules {
+  display: none;
   margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border);
   font-size: 0.73rem; color: var(--text2); line-height: 1.7;
 }
+.fe-rules.open { display: block; }
 .fe-rules b { color: var(--text); }
 .fe-rules .fr-head { font-weight: 700; color: var(--text); margin-bottom: 4px; }
 .fe-rules ul { margin: 0; padding-left: 17px; }
@@ -618,42 +622,11 @@ body {
       <span id="themeLabel">淺色模式</span>
     </button>
     <h1>規格文件標準化工具</h1>
-    <p>上傳 Word / Excel / PPT 規格書 → 自動產出前端 Vue 介面與後端 C# 程式 → 一鍵打包交付工程師</p>
+    <p>上傳 Word / Excel / PPT 規格書 → 自動產出可匯入後台「新增自動化工具」的設定檔 JSON</p>
   </div>
 
-  <!-- Step 1: 選擇後台模板 -->
-  <div class="tpl-section" id="tplSection">
-    <div class="step-label"><span class="step-num">1</span> 選擇後台模板風格</div>
-    <div class="tpl-grid">
-      <div class="tpl-card" data-tpl="admin1" onclick="selectTemplate('admin1')">
-        <div class="tpl-thumb tpl-thumb-classic">
-          <div class="tt-topnav"></div>
-          <div class="tt-main3"><div class="tt-bar3"></div><div class="tt-dense"></div></div>
-        </div>
-        <div class="tpl-name">Admin 1 · 黃底傳統</div>
-        <div class="tpl-desc">米黃底＋密集表格，頂部導覽，經典營運後台風格</div>
-      </div>
-      <div class="tpl-card" data-tpl="admin2" onclick="selectTemplate('admin2')">
-        <div class="tpl-thumb tpl-thumb-light">
-          <div class="tt-tabs"><span></span><span></span><span></span></div>
-          <div class="tt-main2"><div class="tt-bar2"></div><div class="tt-grid"></div></div>
-        </div>
-        <div class="tpl-name">Admin 2 · 白底標籤頁</div>
-        <div class="tpl-desc">白底＋藍色按鈕，分頁籤＋框線資料表，適合查詢報表</div>
-      </div>
-      <div class="tpl-card" data-tpl="admin3" onclick="selectTemplate('admin3')">
-        <div class="tpl-thumb tpl-thumb-dark">
-          <div class="tt-side"></div>
-          <div class="tt-main"><div class="tt-bar"></div><div class="tt-row"></div><div class="tt-row"></div><div class="tt-row"></div></div>
-        </div>
-        <div class="tpl-name">Admin 3 · 深色側欄</div>
-        <div class="tpl-desc">深底＋金色 accent，左側選單，適合維運/設定工具</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Step 2: 上傳 -->
-  <div class="step-label" style="margin-bottom:12px;"><span class="step-num">2</span> 拖曳或上傳規格文件</div>
+  <!-- Step 1: 上傳 -->
+  <div class="step-label" style="margin-bottom:12px;"><span class="step-num">1</span> 拖曳或上傳規格文件</div>
 
   <!-- Upload -->
   <div class="upload-zone" id="uploadZone">
@@ -671,26 +644,14 @@ body {
     </div>
   </div>
 
-  <!-- Step 3: 放入設定檔產生器 Skill 包 -->
-  <div class="step-label" style="margin:24px 0 12px;"><span class="step-num">3</span> 放入設定檔產生器 Skill 包（必要）</div>
-
-  <div class="skill-zone" id="skillZone">
-    <input type="file" id="skillInput" accept=".zip" style="display:none;">
-    <div class="skill-empty" id="skillEmpty">
-      <span class="skill-icon">🧩</span>
-      <div>
-        <div class="skill-title">query-tool-config-generator（.zip）<span class="skill-tag req">必要</span></div>
-        <div class="skill-desc">載入後,工具會依包內 <code>schema.md</code> 的欄位形狀與白名單、以及 78 組連線識別碼快照,把規格書轉成<b>可直接匯入後台「新增自動化工具」的設定檔 JSON</b>。<b>三個步驟都完成後才會開始生成</b>。</div>
-      </div>
+  <!-- 內建規範（原 skill 包已內建，不需每次放入） -->
+  <div class="skill-zone builtin" id="builtinRules">
+    <div class="skill-loaded-head" style="margin-bottom:8px;">
+      <span>🧩 已內建規範：<b>query-tool-config-generator</b></span>
+      <button class="skill-remove" onclick="document.getElementById('feRules').classList.toggle('open')">▾ 規範明細</button>
     </div>
-    <div class="skill-loaded" id="skillLoaded" style="display:none;">
-      <div class="skill-loaded-head">
-        <span>✅ 已載入設定檔產生器：<b id="skillPackName"></b></span>
-        <button class="skill-remove" onclick="removeSkillPack(event)">✕ 移除</button>
-      </div>
-      <div class="skill-chips" id="skillChips"></div>
-      <div class="fe-rules" id="feRules"></div>
-    </div>
+    <div class="skill-chips" id="skillChips"></div>
+    <div class="fe-rules" id="feRules"></div>
   </div>
 
   <!-- 錯誤常駐橫幅 -->
@@ -714,49 +675,19 @@ body {
   </div>
 </div>
 
-<!-- ── 生成前端介面區 ───────────────────────────────────────── -->
+<!-- ── 欄位確認（企劃把關點）───────────────────────────────── -->
 <div class="ai-section" id="aiSection" style="display:none;">
   <div class="ai-header">
     <div class="ai-title">⚙️ 產出查詢工具設定檔</div>
-    <div class="ai-subtitle">依規格書產出可直接匯入後台「新增自動化工具」的 JSON 設定檔；下方預覽為版面/欄位示意</div>
+    <div class="ai-subtitle">依規格書產出可直接匯入後台「新增自動化工具」的 JSON 設定檔</div>
   </div>
 
-  <!-- 生成 Vue（全寬） -->
-  <div class="design-option-full">
-    <div class="ai-option-badge badge-design">✦ 本地生成 → Vue</div>
-    <h4 style="font-size:0.9rem;font-weight:700;margin-bottom:6px;letter-spacing:-0.01em;">生成前端介面（Vue 3 + Element Plus）</h4>
-    <p style="font-size:0.78rem;color:var(--text2);margin-bottom:12px;line-height:1.55;">依「步驟 1 選定的後台模板風格」＋規格書欄位，於瀏覽器本地直接組出可執行的 <b>.vue</b> 單檔元件，即時預覽並下載。零成本、即點即出。</p>
-    <button class="btn-green" onclick="runLocalGeneration()">✦ 生成 Vue 元件</button>
-
-    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
-      <div style="font-size:0.8rem;font-weight:600;margin-bottom:6px;">📋 進階：複製完整 Prompt 給 AI（另一條路，與上方生成互不影響）</div>
-      <p style="font-size:0.76rem;color:var(--text2);margin-bottom:10px;line-height:1.5;">上方按鈕＝固定模板即時生成（快、穩定）；此選項＝把規格與技術計畫複製給 ChatGPT / Copilot / Gemini / Claude.ai 自由發揮（彈性高、結果視 AI 而定）。一般情況用上方即可。</p>
-      <button class="btn-secondary btn" onclick="copyFullPrompt()">📋 複製完整 Prompt</button>
-      <div class="prompt-copied" id="promptCopied">
-        ✅ 已複製！貼到 →
-        <div class="ai-links">
-          <a class="ai-link" href="https://chat.openai.com" target="_blank">ChatGPT</a>
-          <a class="ai-link" href="https://gemini.google.com" target="_blank">Gemini</a>
-          <a class="ai-link" href="https://copilot.microsoft.com" target="_blank">Copilot</a>
-          <a class="ai-link" href="https://claude.ai" target="_blank">Claude.ai</a>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 輸出預覽 -->
-  <div class="design-output-wrap" id="designOutputWrap">
+  <div class="design-output-wrap" id="designOutputWrap" style="display:block;">
     <div class="design-output-toolbar">
       <span><span class="ai-status-dot idle" id="designDot"></span><span id="designStatusText">準備中</span></span>
       <div style="display:flex;align-items:center;gap:8px;">
         <select id="toolSelect" onchange="switchTool(this.value)" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--text);font-size:0.78rem;cursor:pointer;max-width:220px;"></select>
-        <div class="design-tabs">
-          <button class="design-tab active" id="tabPreview" onclick="switchDesignTab('preview')">預覽</button>
-          <button class="design-tab" id="tabCode" onclick="switchDesignTab('code')">程式碼</button>
-        </div>
-        <button class="design-tab" onclick="toggleFieldEditor()">✏️ 欄位</button>
-        <button class="design-tab" id="editModeBtn" onclick="toggleEditMode()">🎯 圈選改圖</button>
-        <button class="btn btn-success" id="downloadDesignBtn" onclick="downloadDesignHtml()" style="display:none;">⬇ 下載 .vue</button>
+        <button class="design-tab" onclick="toggleFieldEditor()">✏️ 欄位確認/修改</button>
       </div>
     </div>
     <!-- 欄位確認/修改面板 -->
@@ -765,36 +696,11 @@ body {
       <div class="fe-cols"><span></span><span>表格顯示欄名</span><span>DB 欄位名</span><span>型別</span></div>
       <div id="feRows"></div>
       <div class="fe-actions">
-        <button class="btn btn-primary" onclick="applyFieldEdits()">✔ 套用並重新生成</button>
+        <button class="btn btn-primary" onclick="applyFieldEdits()">✔ 套用並重新產生設定檔</button>
         <button class="btn btn-secondary" onclick="toggleFieldEditor(false)">取消</button>
       </div>
     </div>
-    <div class="mock-strip" id="mockStrip">⚠️ 預覽中的表格資料為<b>示意假資料</b>，僅供確認版面與欄位；實際資料由工程師串接後端後顯示</div>
-    <div class="edit-strip" id="editStrip" style="display:none;">
-      🎯 <b>圈選改圖模式</b>：把滑鼠移到預覽上會高亮元素，<b>點一下</b>選取後就能打提詞修改（例如「背景改深藍」「字放大」「置中」「把文字改成 XXX」「刪除」）。
-      <button class="edit-strip-clear" id="editClearAll" onclick="clearAllPatches()" style="display:none;">↩ 清除全部修改</button>
-    </div>
-    <div class="design-preview-stage" id="designPreviewStage">
-      <iframe class="design-preview-frame" id="designPreviewFrame" sandbox="allow-scripts"></iframe>
-      <!-- 圈選提詞氣泡 -->
-      <div class="edit-bubble" id="editBubble" style="display:none;">
-        <div class="eb-head">
-          <span class="eb-target" id="ebTarget">已選元素</span>
-          <span class="eb-tools">
-            <button class="eb-icon" title="還原此元素" onclick="revertSelected()">↩</button>
-            <button class="eb-icon" title="關閉" onclick="closeBubble()">✕</button>
-          </span>
-        </div>
-        <div class="eb-chips" id="ebChips"></div>
-        <div class="eb-input-row">
-          <input type="text" id="ebInput" class="eb-input" placeholder="描述想怎麼改… 背景改藍 / 字放大 / 置中 / 把文字改成 XXX / 刪除"
-                 onkeydown="if(event.key==='Enter'){event.preventDefault();applyPrompt();}">
-          <button class="eb-apply" onclick="applyPrompt()">套用</button>
-        </div>
-        <div class="eb-hint" id="ebHint"></div>
-      </div>
-    </div>
-    <pre class="design-code-pre" id="designCodePre"></pre>
+    <div class="mock-strip" id="mockStrip">💡 設定檔的顯示欄位／搜尋條件由下方規則推導；欄名或型別不對,點右上「✏️ 欄位確認/修改」調整後會重新產生</div>
   </div>
 </div>
 
@@ -1943,41 +1849,11 @@ ${planMd}`;
   }).catch(() => showError('複製失敗，請手動選取後 Ctrl+C。'));
 }
 
-// ─── Template selection ──────────────────────────────────────────────────────
-const ADMIN_TEMPLATES = {
-  admin1: {
-    name: 'Admin 1 · 黃底傳統後台',
-    style: `Classic dense 2000s-era operational backend. Page background #FFFFBB (pale yellow). Dark olive top navigation bar (#595c51, white text). Yellow warning banner (#ffee00 bg, #cc0000 bold text: "*** 此為開發環境 ***"). Query form area background #FFEE99 with compact date/hour inputs and keyword search. Very dense data table: header row #6A6D6A with white bold centered text, alternating rows #FFEE99 / #EEDD88, thin #CCBB66 borders, 1-2px cell padding, small 12px font, centered cells. Links in dark red #880000. Gold action buttons #BD9200. Text-link pagination (Top | 上一頁 | [1] 2 3 | 下一頁 | End, 總頁數/每頁列出). Prioritize information density over whitespace.`,
-    elementTheme: `Light theme, compact/small table size, override table colors to the cream/yellow palette above. Primary color #BD9200.`,
-  },
-  admin2: {
-    name: 'Admin 2 · 白底標籤頁表格',
-    style: `Clean white Element-UI style admin. Dark olive header bar (#595c51). Horizontal border-card tab strip for switching record types (active tab white, inactive light gray). Filter/search form with 130px right-aligned labels: date-range pickers, dropdown selectors, keyword input, plus blue 搜尋 (primary #3366FF) and gray 重置 buttons. Below: bordered + striped data table (el-table border stripe), header cells #f5f7fa with black bold centered text, #999 cell borders, 5px cell padding, grouped multi-row headers where fields nest. Row hover highlight. el-pagination at bottom with jump-to-page.`,
-    elementTheme: `Use Element Plus default light theme. Primary color #3366FF, medium size controls.`,
-  },
-  admin3: {
-    name: 'Admin 3 · 深色側欄後台',
-    style: `Modern dark admin (Nuxt-UI style). Page background #1A1C1F. Fixed left sidebar (~220-320px, #212327 bg, subtle #3a3d42 right border) with collapsible menu groups, gold active item. Top bar inside content: tool title, gold environment pill badge ("目前環境: 開發環境"), timezone GMT+8, language switcher, user name. Main cards #26282d with 16px rounded corners and 1px #3a3d42 borders. Gold/amber primary #d8a038 for buttons and highlights. Dark table: header #212327 with gold text, rows #2b2d33 alternating #303237, hover brighten, #3a3d42 borders, py-3 px-3 cell padding, 13-14px font. Eye-icon action column on the left. Rounded-md buttons.`,
-    elementTheme: `Element Plus dark styling via CSS variable overrides (dark backgrounds, light text). Primary color #d8a038.`,
-  },
-};
-
-function selectTemplate(key, opts) {
-  window._selectedTemplate = key;
-  document.querySelectorAll('.tpl-card').forEach(c => {
-    c.classList.toggle('selected', c.getAttribute('data-tpl') === key);
-  });
-  // 三步驟齊全時 → 切換模板立即以新風格重新生成前端
-  if (!(opts && opts.silent) && !missingSteps().length) runLocalGeneration();
-}
-
 // ─── Auto-generate after upload（選好模板＋解析完成 → 直接產生畫面）──────────
 // 三步驟必須全部完成（1 選模板、2 上傳文件、3 放入 Skill 包）才能生成
 function missingSteps() {
   const miss = [];
-  if (!window._selectedTemplate) miss.push('步驟 1 選擇模板');
-  if (!window._lastState)       miss.push('步驟 2 上傳規格文件');
-  if (!window._cfgPack)         miss.push('步驟 3 放入設定檔產生器 Skill 包');
+  if (!window._lastState) miss.push('上傳規格文件');
   return miss;
 }
 
@@ -1987,13 +1863,137 @@ function autoGenerateIfReady() {
     showToast('✔ 文件已解析，尚未生成 — 還差：' + miss.join('、'));
     return;
   }
-  runLocalGeneration();
   runConfigGeneration();  // 產出可匯入的查詢工具設定檔
   const wrap = document.getElementById('designOutputWrap');
   if (wrap) setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
 }
 
-// ─── 免費本地生成：依模板＋規格欄位規則式組出 Vue SFC（零 API）───────────────
+function switchTool(idx) {
+  window._activeToolIdx = parseInt(idx, 10) || 0;
+  document.getElementById('fieldEditor').style.display = 'none';
+  runConfigGeneration();
+}
+
+// ─── 欄位確認/修改（企劃把關點）──────────────────────────────────────────────
+function overrideKey(tool) { return tool ? (tool.sheetName || tool.name) : '__single__'; }
+
+function toggleFieldEditor(show) {
+  const panel = document.getElementById('fieldEditor');
+  const showIt = show !== undefined ? show : panel.style.display === 'none';
+  if (!showIt) { panel.style.display = 'none'; return; }
+
+  const state = window._lastState;
+  if (!state) { showError('請先上傳規格文件'); return; }
+  const tools = window._tools || extractTools(state);
+  const tool = tools[window._activeToolIdx || 0];
+  const meta = extractSpecMeta(state, tool);
+
+  document.getElementById('feToolName').textContent = tool.name;
+  document.getElementById('feRows').innerHTML = meta.props.map((p, i) => `
+    <div class="fe-row">
+      <input type="checkbox" id="fe_on_${i}" checked>
+      <input type="text" id="fe_col_${i}" value="${escapeHtml(p.col)}">
+      <input type="text" id="fe_db_${i}" value="${escapeHtml(p.dbName)}"${p.guessed ? ' style="border-color:var(--warn);" title="⚠️ DB 欄名為推測，請確認"' : ''}>
+      <select id="fe_type_${i}">
+        <option value="string"${p.type === 'string' ? ' selected' : ''}>string</option>
+        <option value="int"${p.type === 'int' ? ' selected' : ''}>int</option>
+        <option value="DateTime"${p.type === 'DateTime' ? ' selected' : ''}>DateTime</option>
+      </select>
+    </div>`).join('');
+  panel.style.display = 'block';
+}
+
+function applyFieldEdits() {
+  const tools = window._tools || extractTools(window._lastState);
+  const tool = tools[window._activeToolIdx || 0];
+  const rows = document.querySelectorAll('#feRows .fe-row');
+  const props = [];
+  let badDb = null;
+  rows.forEach((r, i) => {
+    if (!document.getElementById('fe_on_' + i).checked) return;
+    const col    = sanitizeLabel(document.getElementById('fe_col_' + i).value);
+    const dbName = document.getElementById('fe_db_' + i).value.trim();
+    const type   = document.getElementById('fe_type_' + i).value;
+    if (!dbName) return;
+    // DB 欄名進入生成的 SQL → 僅允許合法識別字（英文/數字/底線），防 Injection
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(dbName)) { badDb = dbName; return; }
+    const name = dbName.split(/[_\s-]+/).filter(Boolean)
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('') || ('Field' + (i + 1));
+    props.push({ col: col || dbName, name, dbName, type });
+  });
+  if (badDb) { showError('DB 欄位名僅允許英文、數字與底線：' + badDb); return; }
+  if (!props.length) { showError('至少保留一個欄位'); return; }
+  (window._fieldOverrides = window._fieldOverrides || {})[overrideKey(tool)] = props;
+  toggleFieldEditor(false);
+  runConfigGeneration();
+  showToast('✏️ 欄位已更新，設定檔已重新產生');
+}
+
+// ═══ 規格解析共用：多工具拆分與欄位抽取 ═══════════════════════════════════
+
+// 中文欄名 → 英文字典（組字用）
+const COL_WORD_DICT = [
+  ['玩家','Player'],['會員','Member'],['帳號','Account'],['暱稱','Nickname'],
+  ['獎勵','Reward'],['獎品','Prize'],['名稱','Name'],['編號','No'],
+  ['建立','Create'],['時間','Time'],['日期','Date'],['轉換','Convert'],
+  ['金額','Amount'],['數量','Count'],['狀態','Status'],['類型','Type'],
+  ['平台','Platform'],['領取','Receive'],['發送','Send'],['更新','Update'],
+  ['開始','Start'],['結束','End'],['原始','Origin'],['幣','Coin'],['點數','Point'],
+];
+
+// ─── 多工具拆分：xlsx 每個「顯示」分頁 = 一個工具 ────────────────────────────
+function extractTools(state) {
+  const p = state.parsed;
+  const tools = [];
+  if (p && p.type === 'xlsx' && p.sheets) {
+    for (const [name, rows] of Object.entries(p.sheets)) {
+      const text = rows.map(r => r.join(' | ')).join('\n');
+      if (text.replace(/\s/g, '').length < 30) continue; // 空白/純備註分頁跳過
+      tools.push({
+        name: sanitizeLabel(name.replace(/^[（(][^（()）]*[）)]/, '')) || sanitizeLabel(name) || 'Tool', // 去掉 (新增)/(調整) 前綴＋消毒
+        sheetName: name,
+        flatText: text,
+      });
+    }
+  }
+  if (!tools.length) {
+    tools.push({ name: (state.fileName || '工具').replace(/\.[^.]+$/, ''), sheetName: null, flatText: state.flatText });
+  }
+  return tools;
+}
+
+// 標籤消毒：欄名/工具名會進入 Vue SFC 模板與 C# 註解，移除可造成注入或破版的字元
+function sanitizeLabel(s) {
+  return String(s).replace(/[<>{}`$\\"'|]/g, '').trim().slice(0, 24);
+}
+
+// 明確欄位定義表：「欄位名稱 | 欄位說明」後接 [field] | 中文說明（取第一組 = 主表）
+function extractFieldPairs(text) {
+  const lines = text.split(/\r?\n/);
+  const pairs = [];
+  let inTable = false;
+  let miss = 0;
+  for (const raw of lines) {
+    const line = raw.trim();
+    const isFieldHeader = line.includes('欄位名稱') && line.includes('欄位說明');
+    if (!inTable) {
+      if (isFieldHeader) inTable = true;
+      continue;
+    }
+    // 遇到下一張表（另一組 [db].[dbo].[table] 或另一個欄位表頭）→ 主表結束
+    if (/\[\w+\]\s*\.\s*\[\w+\]\s*\.\s*\[\w+\]/.test(line) || isFieldHeader) break;
+    // 分段解析（容忍空儲存格與前導空欄）：第一個非空段 = 欄位名、其後第一個非空段 = 欄位說明
+    const segs = line.split('|').map(s => s.trim());
+    while (segs.length && !segs[0]) segs.shift();
+    const fm = segs[0] && segs[0].match(/^\[?([A-Za-z_][A-Za-z0-9_]*)\]?$/);
+    const desc = segs.slice(1).find(Boolean);
+    if (fm && desc) { pairs.push({ field: fm[1], desc: sanitizeLabel(desc) || fm[1] }); miss = 0; }
+    else if (pairs.length && ++miss >= 3) break; // 容忍儲存格內換行造成的續行
+  }
+  return pairs;
+}
+
+// ─── 無明確欄位定義表時的後備：從內文推測欄名（extractSpecMeta 的 fallback）───
 function extractSpecColumns(state) {
   // 策略：偵測規格書中「最像表頭的一列」，整列欄位全數保留（含自訂欄位如「轉換ｉ幣」）
   const text = state.flatText || '';
@@ -2072,373 +2072,6 @@ function extractSpecColumns(state) {
   }
   if (hits.length < 3) return ['編號', '名稱', '類型', '狀態', '建立時間'];
   return hits.slice(0, 7);
-}
-
-function buildLocalVue(tplKey, state, tool) {
-  const tpl = ADMIN_TEMPLATES[tplKey];
-  const meta = extractSpecMeta(state, tool);
-  const title = meta.toolTitle || '後台管理';
-  const cols = meta.columns;
-  const colDefs = cols.map(c => `      <el-table-column prop="${c}" label="${c}" show-overflow-tooltip />`).join('\n');
-  const mockVals = (c, i) => {
-    if (/時間|日期/.test(c)) return `'2026/07/0${(i % 5) + 1} 1${i}:2${i}:00'`;
-    if (/金額|數量|押注|得分|幣|點數|分數/.test(c)) return String((i + 1) * 1000);
-    if (/狀態/.test(c)) return i % 2 ? `'啟用'` : `'停用'`;
-    if (/帳號/.test(c)) return `'user_10${i}'`;
-    if (/編號/.test(c)) return String(4600 + i);
-    return `'範例${c}${i + 1}'`;
-  };
-  const mockRows = Array.from({ length: 6 }, (_, i) =>
-    '  { ' + cols.map(c => `'${c}': ${mockVals(c, i)}`).join(', ') + ' }').join(',\n');
-
-  // 模板配色（依真實後台 HTML 萃取）
-  const theme = {
-    // Admin 1 黃底傳統：頁底 #FFFFBB、表頭 #6A6D6A、交錯列 #FFEE99/#EEDD88、頂欄 #595c51、金色按鈕 #BD9200
-    admin1: { pageBg: '#FFFFBB', cardBg: '#FFEE99', text: '#000000', primary: '#BD9200', headerBg: '#595c51', dark: false },
-    // Admin 2 白底標籤頁：Element UI 原生、主色 #3366FF、表頭 #f5f7fa、框線 #999
-    admin2: { pageBg: '#ffffff', cardBg: '#ffffff', text: '#000000', primary: '#3366FF', headerBg: '#595c51', dark: false },
-    // Admin 3 深色側欄：頁底 #1A1C1F、卡片 grey-900、金色 primary #d8a038、圓角 2xl
-    admin3: { pageBg: '#1A1C1F', cardBg: '#26282d', text: '#e5e5e5', primary: '#d8a038', headerBg: '#212327', dark: true },
-  }[tplKey];
-
-  const sidebar = tplKey === 'admin3' ? `
-    <el-aside width="220px" class="side">
-      <div class="logo">🎮 後台管理系統</div>
-      <el-menu :default-active="'1'" background-color="${theme.headerBg}" text-color="#9ca3af" active-text-color="${theme.primary}">
-        <el-menu-item index="1">📋 ${title}</el-menu-item>
-        <el-menu-item index="2">⚙️ 系統設定</el-menu-item>
-        <el-menu-item index="3">👤 帳號管理</el-menu-item>
-      </el-menu>
-    </el-aside>` : '';
-
-  const topbar = tplKey === 'admin1' ? `
-    <div class="topnav">後台管理系統 ｜ Web工具 ｜ 遊戲工具</div>
-    <div class="envbar">*** 此為開發環境 ***</div>
-    <div class="pagetitle">${title} <span class="crumb">[ &gt; 查詢 &lt; | 新增 | 修改 ]</span></div>` :
-    tplKey === 'admin2' ? `
-    <div class="topnav2">後台管理系統</div>
-    <el-tabs v-model="activeTab" type="border-card" class="tabs">
-      <el-tab-pane label="${title}" name="main" />
-      <el-tab-pane label="其他紀錄" name="other" />
-    </el-tabs>` :
-    tplKey === 'admin3' ? `
-    <div class="topbar3"><span class="tb-title">🛠 ${title}</span><span class="tb-env">目前環境: 開發環境</span><span class="tb-right">🕐 GMT+8 ｜ 🌐 繁體中文 ｜ 👤 admin</span></div>` : '';
-
-  return `<template>
-  <el-container class="page">${sidebar}
-    <el-container>
-      <el-main>${topbar}
-        <div class="card">
-          <div class="filters">
-            <el-date-picker v-model="dateRange" type="daterange" range-separator="~" start-placeholder="開始日" end-placeholder="結束日" size="default" />
-            <el-select v-model="searchField" style="width:130px"><el-option label="${cols[0]}" value="${cols[0]}" /><el-option label="${cols[1]}" value="${cols[1]}" /></el-select>
-            <el-input v-model="keyword" placeholder="請輸入搜尋關鍵字" style="width:200px" clearable />
-            <el-button type="primary" @click="doSearch">🔍 搜尋</el-button>
-            <el-button @click="reset">↺ 重置</el-button>
-            <el-button type="primary" plain @click="dialogVisible = true">＋ 新增</el-button>
-          </div>
-          <el-table :data="pagedRows" border stripe size="${tplKey === 'admin1' ? 'small' : 'default'}" style="width:100%">
-${colDefs}
-            <el-table-column label="操作" width="130" fixed="right">
-              <template #default="scope">
-                <el-button size="small" @click="edit(scope.row)">編輯</el-button>
-                <el-button size="small" type="danger" @click="del(scope.$index)">刪除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <el-pagination class="pager" layout="total, prev, pager, next, sizes" :total="total" v-model:current-page="page" v-model:page-size="pageSize" :page-sizes="[5,10,20]" @current-change="loadData" @size-change="loadData" />
-        </div>
-        <el-dialog v-model="dialogVisible" title="新增 / 編輯" width="480px">
-          <el-form label-width="90px">
-            <el-form-item v-for="c in columns" :key="c" :label="c"><el-input v-model="form[c]" /></el-form-item>
-          </el-form>
-          <template #footer>
-            <el-button @click="dialogVisible = false">取消</el-button>
-            <el-button type="primary" @click="save">儲存</el-button>
-          </template>
-        </el-dialog>
-      </el-main>
-    </el-container>
-  </el-container>
-</template>
-
-<script setup>
-import { ref, computed, onMounted } from 'vue';
-// 串接後端時：import { getList, toTableRows } from './api-${meta.kebab}';
-
-const columns = ${JSON.stringify(cols)};
-// ⚠️ 以下為示意假資料；串接後改由 loadData() 從 API 取得
-const rows = ref([
-${mockRows}
-]);
-const total = ref(0);
-const dateRange = ref('');
-const searchField = ref('${cols[0]}');
-const keyword = ref('');
-const page = ref(1);
-const pageSize = ref(5);
-const dialogVisible = ref(false);
-const form = ref({});
-let editIndex = -1;
-const activeTab = ref('main');
-
-// ── Mock 模式：前端過濾 + 前端分頁（僅供預覽）──
-const filtered = computed(() =>
-  rows.value.filter(r => !keyword.value || String(r[searchField.value] || '').includes(keyword.value)));
-const pagedRows = computed(() =>
-  filtered.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value));
-
-async function loadData() {
-  // Mock：以本地資料計算總數
-  total.value = filtered.value.length;
-  // ── 串接後端時改為（伺服器分頁，移除上方 filtered/pagedRows，表格 :data 直接綁 rows）──
-  // const data = await getList({ page: page.value, pageSize: pageSize.value,
-  //   searchField: keyword.value ? searchField.value : '', searchValue: keyword.value });
-  // rows.value = toTableRows(data.Items);
-  // total.value = data.Total;
-}
-
-onMounted(loadData);
-
-function doSearch() { page.value = 1; loadData(); }
-function reset() { keyword.value = ''; dateRange.value = ''; page.value = 1; loadData(); }
-function edit(row) { editIndex = rows.value.indexOf(row); form.value = { ...row }; dialogVisible.value = true; }
-function del(i) { rows.value.splice((page.value - 1) * pageSize.value + i, 1); loadData(); }
-function save() {
-  if (editIndex >= 0) rows.value[editIndex] = { ...form.value };
-  else rows.value.unshift({ ...form.value });
-  editIndex = -1; form.value = {}; dialogVisible.value = false;
-  loadData();
-}
-<\/script>
-
-<style scoped>
-.page { min-height: 100vh; background: ${theme.pageBg}; color: ${theme.text}; }
-.filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
-.pager { margin-top: 14px; justify-content: flex-end; }
-:deep(.el-button--primary) { background: ${theme.primary}; border-color: ${theme.primary}; color: #fff; }
-${tplKey === 'admin1' ? `
-/* ── Admin 1 黃底傳統（依真實後台）── */
-.topnav { background: #595c51; color: #fff; padding: 9px 14px; font-weight: 700; font-size: 14px; }
-.envbar { background: #ffee00; color: #cc0000; font-weight: 700; text-align: left; padding: 3px 10px; font-size: 13px; }
-.pagetitle { padding: 8px 10px 4px; font-weight: 700; font-size: 15px; color: #000; }
-.pagetitle .crumb { font-weight: 400; font-size: 12px; color: #444; margin-left: 8px; }
-.card { background: #FFEE99; border: 1px solid #CCBB66; padding: 8px 10px; }
-:deep(.el-table) { --el-table-header-bg-color: #6A6D6A; --el-table-header-text-color: #fff;
-  --el-table-tr-bg-color: #FFEE99; --el-table-border-color: #CCBB66; font-size: 12px; color: #000; }
-:deep(.el-table th) { color: #fff; font-weight: 700; text-align: center; padding: 3px 0; }
-:deep(.el-table td) { padding: 2px 0; text-align: center; }
-:deep(.el-table .el-table__row--striped td.el-table__cell) { background: #EEDD88; }
-:deep(.el-button--primary) { background: #BD9200; border-color: #BD9200; }
-a, :deep(a) { color: #880000; }
-` : ''}
-${tplKey === 'admin2' ? `
-/* ── Admin 2 白底標籤頁（Element UI 原生風）── */
-.topnav2 { background: #595c51; color: #fff; padding: 10px 16px; font-weight: 700; margin-bottom: 0; }
-.tabs { margin-bottom: 10px; }
-.card { background: #fff; padding: 14px 4px; }
-:deep(.el-table) { --el-table-header-bg-color: #f5f7fa; --el-table-border-color: #999; font-size: 13px; }
-:deep(.el-table th) { color: #000; font-weight: 700; text-align: center; }
-:deep(.el-table td) { padding: 5px 0; text-align: center; }
-` : ''}
-${tplKey === 'admin3' ? `
-/* ── Admin 3 深色側欄（Nuxt UI dark + gold）── */
-.side { background: #212327; min-height: 100vh; border-right: 1px solid #3a3d42; }
-.logo { color: #d8a038; font-weight: 700; padding: 18px 16px; font-size: 15px; }
-:deep(.el-menu) { border-right: none; }
-.topbar3 { display: flex; align-items: center; gap: 14px; background: #212327; border-radius: 12px;
-  padding: 10px 16px; margin-bottom: 14px; font-size: 13px; color: #e5e5e5; }
-.tb-title { font-weight: 700; font-size: 15px; }
-.tb-env { background: rgba(216,160,56,.15); color: #d8a038; border: 1px solid rgba(216,160,56,.4);
-  padding: 1px 10px; border-radius: 20px; font-size: 12px; }
-.tb-right { margin-left: auto; color: #9ca3af; font-size: 12px; }
-.card { background: #26282d; border-radius: 16px; padding: 18px; border: 1px solid #3a3d42; }
-:deep(.el-table) { --el-table-bg-color: #26282d; --el-table-tr-bg-color: #2b2d33;
-  --el-table-header-bg-color: #212327; --el-table-text-color: #e5e5e5;
-  --el-table-header-text-color: #d8a038; --el-table-border-color: #3a3d42; }
-:deep(.el-table .el-table__row--striped td.el-table__cell) { background: #303237; }
-:deep(.el-table .el-table__row:hover td.el-table__cell) { background: #3a3d42 !important; }
-:deep(.el-input__wrapper), :deep(.el-select__wrapper) { background: #2b2d33; box-shadow: 0 0 0 1px #3a3d42 inset; }
-:deep(.el-input__inner) { color: #e5e5e5; }
-:deep(.el-pagination) { --el-pagination-bg-color: #2b2d33; --el-pagination-text-color: #e5e5e5;
-  --el-pagination-button-color: #e5e5e5; }
-:deep(.el-dialog) { background: #26282d; }
-` : ''}
-</style>`;
-}
-
-function runLocalGeneration() {
-  const miss = missingSteps();
-  if (miss.length) { showError('請先完成：' + miss.join('、')); return; }
-  const state = window._lastState;
-  const tplKey = window._selectedTemplate;
-  const tpl = ADMIN_TEMPLATES[tplKey];
-
-  const wrap    = document.getElementById('designOutputWrap');
-  const dot     = document.getElementById('designDot');
-  const status  = document.getElementById('designStatusText');
-  const frame   = document.getElementById('designPreviewFrame');
-  const codePre = document.getElementById('designCodePre');
-  const dlBtn   = document.getElementById('downloadDesignBtn');
-
-  // 多工具拆分（xlsx 每個顯示分頁 = 一個工具）
-  const tools = extractTools(state);
-  window._tools = tools;
-  if (window._activeToolIdx == null || window._activeToolIdx >= tools.length) window._activeToolIdx = 0;
-  const tool = tools[window._activeToolIdx];
-
-  // 工具切換選單（多於 1 個才顯示）
-  const sel = document.getElementById('toolSelect');
-  if (sel) {
-    if (tools.length > 1) {
-      sel.innerHTML = tools.map((t, i) => `<option value="${i}"${i === window._activeToolIdx ? ' selected' : ''}>${escapeHtml(t.sheetName || t.name)}</option>`).join('');
-      sel.style.display = 'inline-block';
-    } else {
-      sel.style.display = 'none';
-    }
-  }
-
-  const vueCode = buildLocalVue(tplKey, state, tool);
-  window._generatedVueCode = vueCode;
-
-  wrap.style.display = 'block';
-  codePre.textContent = vueCode;
-  frame.srcdoc = buildVuePreview(vueCode);
-  dot.className = 'ai-status-dot done'; dot.style.display = 'inline-block';
-  status.textContent = '生成完成 · ' + tpl.name
-    + (tools.length > 1 ? `（${window._activeToolIdx + 1}/${tools.length}：${tool.name}）` : '');
-  dlBtn.style.display = 'inline-block';
-  dlBtn.textContent = tools.length > 1 ? `⬇ 下載 .vue ZIP（${tools.length} 個）` : '⬇ 下載 .vue';
-  const mock = document.getElementById('mockStrip');
-  if (mock) mock.innerHTML = '⚠️ 此預覽僅為<b>版面／欄位示意</b>（假資料）；真正的交付物是下方的<b>查詢工具設定檔</b>，匯入後由後台自己渲染畫面';
-  switchDesignTab('preview');
-  closeBubble(); updateClearBtn();  // 圈選：切工具時同步狀態（patch 於 iframe ready 後自動重套）
-}
-
-function switchTool(idx) {
-  window._activeToolIdx = parseInt(idx, 10) || 0;
-  document.getElementById('fieldEditor').style.display = 'none';
-  runLocalGeneration();
-}
-
-// ─── 欄位確認/修改（企劃把關點）──────────────────────────────────────────────
-function overrideKey(tool) { return tool ? (tool.sheetName || tool.name) : '__single__'; }
-
-function toggleFieldEditor(show) {
-  const panel = document.getElementById('fieldEditor');
-  const showIt = show !== undefined ? show : panel.style.display === 'none';
-  if (!showIt) { panel.style.display = 'none'; return; }
-
-  const state = window._lastState;
-  if (!state) { showError('請先上傳規格文件'); return; }
-  const tools = window._tools || extractTools(state);
-  const tool = tools[window._activeToolIdx || 0];
-  const meta = extractSpecMeta(state, tool);
-
-  document.getElementById('feToolName').textContent = tool.name;
-  document.getElementById('feRows').innerHTML = meta.props.map((p, i) => `
-    <div class="fe-row">
-      <input type="checkbox" id="fe_on_${i}" checked>
-      <input type="text" id="fe_col_${i}" value="${escapeHtml(p.col)}">
-      <input type="text" id="fe_db_${i}" value="${escapeHtml(p.dbName)}"${p.guessed ? ' style="border-color:var(--warn);" title="⚠️ DB 欄名為推測，請確認"' : ''}>
-      <select id="fe_type_${i}">
-        <option value="string"${p.type === 'string' ? ' selected' : ''}>string</option>
-        <option value="int"${p.type === 'int' ? ' selected' : ''}>int</option>
-        <option value="DateTime"${p.type === 'DateTime' ? ' selected' : ''}>DateTime</option>
-      </select>
-    </div>`).join('');
-  panel.style.display = 'block';
-}
-
-function applyFieldEdits() {
-  const tools = window._tools || extractTools(window._lastState);
-  const tool = tools[window._activeToolIdx || 0];
-  const rows = document.querySelectorAll('#feRows .fe-row');
-  const props = [];
-  let badDb = null;
-  rows.forEach((r, i) => {
-    if (!document.getElementById('fe_on_' + i).checked) return;
-    const col    = sanitizeLabel(document.getElementById('fe_col_' + i).value);
-    const dbName = document.getElementById('fe_db_' + i).value.trim();
-    const type   = document.getElementById('fe_type_' + i).value;
-    if (!dbName) return;
-    // DB 欄名進入生成的 SQL → 僅允許合法識別字（英文/數字/底線），防 Injection
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(dbName)) { badDb = dbName; return; }
-    const name = dbName.split(/[_\s-]+/).filter(Boolean)
-      .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('') || ('Field' + (i + 1));
-    props.push({ col: col || dbName, name, dbName, type });
-  });
-  if (badDb) { showError('DB 欄位名僅允許英文、數字與底線：' + badDb); return; }
-  if (!props.length) { showError('至少保留一個欄位'); return; }
-  (window._fieldOverrides = window._fieldOverrides || {})[overrideKey(tool)] = props;
-  toggleFieldEditor(false);
-  runLocalGeneration();
-  runConfigGeneration();
-  showToast('✏️ 欄位已更新，預覽與設定檔已重新產生');
-}
-
-// ═══ 規格解析共用：多工具拆分與欄位抽取 ═══════════════════════════════════
-
-// 中文欄名 → 英文字典（組字用）
-const COL_WORD_DICT = [
-  ['玩家','Player'],['會員','Member'],['帳號','Account'],['暱稱','Nickname'],
-  ['獎勵','Reward'],['獎品','Prize'],['名稱','Name'],['編號','No'],
-  ['建立','Create'],['時間','Time'],['日期','Date'],['轉換','Convert'],
-  ['金額','Amount'],['數量','Count'],['狀態','Status'],['類型','Type'],
-  ['平台','Platform'],['領取','Receive'],['發送','Send'],['更新','Update'],
-  ['開始','Start'],['結束','End'],['原始','Origin'],['幣','Coin'],['點數','Point'],
-];
-
-// ─── 多工具拆分：xlsx 每個「顯示」分頁 = 一個工具 ────────────────────────────
-function extractTools(state) {
-  const p = state.parsed;
-  const tools = [];
-  if (p && p.type === 'xlsx' && p.sheets) {
-    for (const [name, rows] of Object.entries(p.sheets)) {
-      const text = rows.map(r => r.join(' | ')).join('\n');
-      if (text.replace(/\s/g, '').length < 30) continue; // 空白/純備註分頁跳過
-      tools.push({
-        name: sanitizeLabel(name.replace(/^[（(][^（()）]*[）)]/, '')) || sanitizeLabel(name) || 'Tool', // 去掉 (新增)/(調整) 前綴＋消毒
-        sheetName: name,
-        flatText: text,
-      });
-    }
-  }
-  if (!tools.length) {
-    tools.push({ name: (state.fileName || '工具').replace(/\.[^.]+$/, ''), sheetName: null, flatText: state.flatText });
-  }
-  return tools;
-}
-
-// 標籤消毒：欄名/工具名會進入 Vue SFC 模板與 C# 註解，移除可造成注入或破版的字元
-function sanitizeLabel(s) {
-  return String(s).replace(/[<>{}`$\\"'|]/g, '').trim().slice(0, 24);
-}
-
-// 明確欄位定義表：「欄位名稱 | 欄位說明」後接 [field] | 中文說明（取第一組 = 主表）
-function extractFieldPairs(text) {
-  const lines = text.split(/\r?\n/);
-  const pairs = [];
-  let inTable = false;
-  let miss = 0;
-  for (const raw of lines) {
-    const line = raw.trim();
-    const isFieldHeader = line.includes('欄位名稱') && line.includes('欄位說明');
-    if (!inTable) {
-      if (isFieldHeader) inTable = true;
-      continue;
-    }
-    // 遇到下一張表（另一組 [db].[dbo].[table] 或另一個欄位表頭）→ 主表結束
-    if (/\[\w+\]\s*\.\s*\[\w+\]\s*\.\s*\[\w+\]/.test(line) || isFieldHeader) break;
-    // 分段解析（容忍空儲存格與前導空欄）：第一個非空段 = 欄位名、其後第一個非空段 = 欄位說明
-    const segs = line.split('|').map(s => s.trim());
-    while (segs.length && !segs[0]) segs.shift();
-    const fm = segs[0] && segs[0].match(/^\[?([A-Za-z_][A-Za-z0-9_]*)\]?$/);
-    const desc = segs.slice(1).find(Boolean);
-    if (fm && desc) { pairs.push({ field: fm[1], desc: sanitizeLabel(desc) || fm[1] }); miss = 0; }
-    else if (pairs.length && ++miss >= 3) break; // 容忍儲存格內換行造成的續行
-  }
-  return pairs;
 }
 
 function extractSpecMeta(state, tool) {
@@ -2528,112 +2161,61 @@ function extractSpecMeta(state, tool) {
 }
 
 
-// ─── Claude Design generation ────────────────────────────────────────────────
-function switchDesignTab(tab) {
-  const frame = document.getElementById('designPreviewFrame');
-  const code  = document.getElementById('designCodePre');
-  const tPrev = document.getElementById('tabPreview');
-  const tCode = document.getElementById('tabCode');
-  const strip = document.getElementById('mockStrip');
-  if (tab === 'preview') {
-    frame.style.display = 'block'; code.style.display = 'none';
-    if (strip) strip.style.display = 'block';
-    tPrev.classList.add('active'); tCode.classList.remove('active');
-  } else {
-    frame.style.display = 'none'; code.style.display = 'block';
-    if (strip) strip.style.display = 'none';
-    tPrev.classList.remove('active'); tCode.classList.add('active');
-    closeBubble();  // 切到程式碼分頁時關閉圈選氣泡
-  }
-}
-
 // ═══ 查詢工具設定檔產生器（依 query-tool-config-generator skill 包）═══════════
-window._cfgPack = null;    // 解析後的規範
-window._cfgOut  = null;    // 產出的設定檔 + checklist
+window._cfgOut = null;     // 產出的設定檔 + checklist
 
-// 從 markdown 表格/程式碼抽白名單；抽不到就用 schema.md 明列的值
-function cfgExtractList(text, re, fallback) {
-  const m = text.match(re);
-  if (!m) return fallback;
-  const items = m[1].split(',').map(s => s.replace(/['"\s]/g, '')).filter(Boolean);
-  return items.length ? items : fallback;
-}
+// ── 內建規範（取自 query-tool-config-generator skill 包，不需每次上傳）──
+// 來源：SKILL.md / references/schema.md / references/known-connections-snapshot.md
+//       / scripts/Validate-QueryToolImport.ps1
+// 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
+const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
+const CFG_SNAPSHOT_DATE = '2026-09-01';
+const CFG_TRANSFORMS = ['DIRECT', 'CODE_TABLE', 'JOIN_LOOKUP', 'CUSTOM_MAPPING', 'CUSTOM_SQL'];
+const CFG_OPERATORS = ['EQ', 'NE', 'GT', 'GE', 'LT', 'LE', 'LIKE', 'IN', 'BETWEEN',
+  'CUSTOM_SQL', 'CUSTOM_SQL_CHOICE', 'CUSTOM_SQL_DATE_RANGE', 'QUERY_ACCOUNT', 'QUERY_NICKNAME'];
+const CFG_BLACKLIST = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|EXEC|EXECUTE|MERGE|GRANT|REVOKE|BACKUP|RESTORE|SHUTDOWN)\b|xp_|sp_/i;
+const CFG_CONNECTIONS = ['BankCenterMain','CamWeb','DataVipCare','DevelopGameTowerWebLog','EuSsGameTowerCommon',
+'EuSsGameTowerMember','EuVfGameTowerCommon','EuVfGameTowerMember','FreshdeskLog','GameTower2AIODragonTycoon',
+'GameTower2AIODragonTycoon3','GameTower2AIOGura','GameTower2Cluster','GameTower2Config','GameTower2GTCasino',
+'GameTower2HappyFishI','GameTower2MJ','GameTower2Poker','GameTower2Web','GameTower3LogTmd','GameTowerAccount',
+'GameTowerAccountStar31','GameTowerAccountTmd','GameTowerBackendDonut','GameTowerBill','GameTowerCamDonut',
+'GameTowerCommon','GameTowerContest','GameTowerEdm','GameTowerEmailAgent','GameTowerGtWarehouseBackup',
+'GameTowerLobbyGameStar31','GameTowerLog2Star31','GameTowerLog3Star31','GameTowerLogDonut','GameTowerLogStar31',
+'GameTowerLogTmd','GameTowerMember','GameTowerMemberMaster','GameTowerMJ','GameTowerPartyGo',
+'GameTowerPartyGoConfig','GameTowerPartyGoCredit','GameTowerSlaveMember','GameTowerTmd','GameTowerWarehouse',
+'GameTowerWeb','GameTowerWebLog','GtDataWarehouse','JoyaJlBankCenterMain','KhPsGameTowerCommon',
+'KhPsGameTowerMember','Language','MemberCenterMain','MessageCenterMain','Nft','PartyGo','PartyGoLog',
+'PhPsGameTowerCommon','PhPsGameTowerMember','PwsWeb','ServiceCenterMain','Slam777Config','Slam777Log',
+'Slam888Backend','Slam888Cam','Slam888Config','Slam888Log','Slam888Slam','SlaveMemberCenterMain',
+'TadaJlBankCenterMain','ThIgBankCenterMain','VnIgBankCenterMain','VnJlBankCenterMain','We5Do','Wedo5Do',
+'Wedo5DoBill','Wedo5Wedo5'];
 
-async function loadCfgPack(file) {
-  if (!/\.zip$/i.test(file.name)) { showError('設定檔產生器請使用 .zip 格式'); return; }
-  try {
-    const zip = await JSZip.loadAsync(await file.arrayBuffer());
-    const readTxt = async (re) => {
-      const k = Object.keys(zip.files).find(p => re.test(p) && !zip.files[p].dir);
-      return k ? (await zip.files[k].async('string')).replace(/\r\n/g, '\n') : '';
-    };
-    const skillMd = await readTxt(/query-tool-config-generator\/SKILL\.md$/i);
-    const schema  = await readTxt(/references\/schema\.md$/i);
-    const connMd  = await readTxt(/references\/known-connections-snapshot\.md$/i);
-    const valPs   = await readTxt(/scripts\/Validate-QueryToolImport\.ps1$/i);
-    if (!skillMd || !schema) {
-      showError('此 zip 不是 query-tool-config-generator（缺 SKILL.md 或 references/schema.md）');
-      return;
-    }
+window._cfgPack = {
+  name: CFG_PACK_VERSION,
+  connections: CFG_CONNECTIONS,
+  snapDate: CFG_SNAPSHOT_DATE,
+  transforms: CFG_TRANSFORMS,
+  operators: CFG_OPERATORS,
+  blacklist: CFG_BLACKLIST,
+};
 
-    // 1) 連線識別碼快照（```區塊內一行一個）
-    const connBlock = connMd.match(/```\n([\s\S]*?)```/);
-    const connections = connBlock ? connBlock[1].split('\n').map(s => s.trim()).filter(Boolean) : [];
-    const snapDate = (connMd.match(/擷取時間：\*\*([\d-]+)\*\*/) || [])[1] || '未知';
-
-    // 2) 白名單（優先讀驗證腳本，那是實際把關的來源）
-    const transforms = cfgExtractList(valPs, /\$allowedTransforms\s*=\s*@\(([^)]*)\)/,
-      ['DIRECT','CODE_TABLE','JOIN_LOOKUP','CUSTOM_MAPPING','CUSTOM_SQL']);
-    const operators = cfgExtractList(valPs, /\$allowedOperators\s*=\s*@\(([^)]*)\)/,
-      ['EQ','NE','GT','GE','LT','LE','LIKE','IN','BETWEEN','CUSTOM_SQL','CUSTOM_SQL_CHOICE','CUSTOM_SQL_DATE_RANGE','QUERY_ACCOUNT','QUERY_NICKNAME']);
-    const blRaw = (valPs.match(/\$blacklistRegex\s*=\s*'([^']+)'/) || [])[1]
-      || '\\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|EXEC|EXECUTE|MERGE|GRANT|REVOKE|BACKUP|RESTORE|SHUTDOWN)\\b|xp_|sp_';
-    // SpecialTransform / Alignment 白名單來自 schema.md
-    const special = cfgExtractList(schema, /"SpecialTransform":\s*"([^"]+)"/,
-      ['NONE','VVIP_OR_VIP_NUMBER','VVIP_OR_NUMBER','POKER_CARD','EPOCH_MS_DATE']).map(s => s.replace(/\|/g, ''));
-    // 3) 頂層必填欄位（從 schema 第2節的 JSON 範例取 key 順序）
-    const topBlock = schema.match(/## 2\.[\s\S]*?```json\n([\s\S]*?)```/);
-    const topKeys = topBlock ? (topBlock[1].match(/"(\w+)":/g) || []).map(s => s.replace(/["':]/g, '')) : [];
-    // 4) 三個必須 stringify 的欄位
-    const stringFields = ['ViewDataSetting', 'SearchSetting', 'RelatedTableSetting'];
-
-    window._cfgPack = {
-      name: file.name, connections, snapDate, transforms, operators,
-      blacklist: new RegExp(blRaw, 'i'), special, topKeys, stringFields,
-      hasValidator: !!valPs,
-    };
-
-    document.getElementById('skillEmpty').style.display = 'none';
-    document.getElementById('skillLoaded').style.display = 'block';
-    document.getElementById('skillPackName').textContent = file.name;
-    document.getElementById('skillChips').innerHTML =
-      ['⭐ query-tool-config-generator', '📄 schema.md', '🔌 連線快照 ' + connections.length + ' 組',
-       valPs ? '✔ 驗證規則' : ''].filter(Boolean)
-        .map(s => `<span class="skill-chip">${escapeHtml(s)}</span>`).join('');
-    document.getElementById('feRules').innerHTML =
-      '<div class="fr-head">📖 已從包內讀取並將套用的規範</div><ul>' +
-      `<li>Transform 白名單 <b>${transforms.length}</b> 種：${transforms.map(escapeHtml).join(' / ')}</li>` +
-      `<li>Operator 白名單 <b>${operators.length}</b> 種（<code>IS_NULL</code>／<code>HISTORY_SELECT</code> 依規範不產生）</li>` +
-      `<li>連線識別碼快照 <b>${connections.length}</b> 組（擷取於 ${escapeHtml(snapDate)}，比對不到會標 <code>TODO_</code>）</li>` +
-      `<li>CustomSql 黑名單（分號／DML／DDL／<code>xp_</code>／<code>sp_</code>）、Field 全域唯一、ExportRequiredField 一致性</li>` +
-      `<li><b>ViewDataSetting／SearchSetting／RelatedTableSetting 會序列化成字串</b>（schema 明列最易錯的一步）</li>` +
-      '</ul>';
-
-    showToast('⚙️ 設定檔產生器已載入（連線快照 ' + connections.length + ' 組）');
-    if (!missingSteps().length) autoGenerateIfReady();
-  } catch (err) {
-    showError('設定檔產生器解析失敗：' + err.message);
-  }
-}
-
-function removeSkillPack(e) {
-  if (e) e.stopPropagation();
-  window._cfgPack = null; window._cfgOut = null;
-  const inp = document.getElementById('skillInput'); if (inp) inp.value = '';
-  document.getElementById('skillEmpty').style.display = 'flex';
-  document.getElementById('skillLoaded').style.display = 'none';
-  document.getElementById('cfgSection').style.display = 'none';
-  showToast('已移除設定檔產生器');
+function renderBuiltinRules() {
+  const p = window._cfgPack;
+  const chips = document.getElementById('skillChips');
+  if (chips) chips.innerHTML = [
+    '⭐ query-tool-config-generator', '📄 schema 形狀',
+    '🔌 連線快照 ' + p.connections.length + ' 組（' + p.snapDate + '）', '✔ 內建驗證',
+  ].map(s => `<span class="skill-chip">${escapeHtml(s)}</span>`).join('');
+  const el = document.getElementById('feRules');
+  if (el) el.innerHTML =
+    '<div class="fr-head">📖 產生設定檔時套用的規範</div><ul>' +
+    `<li>Transform 白名單 <b>${p.transforms.length}</b> 種：${p.transforms.join(' / ')}</li>` +
+    `<li>Operator 白名單 <b>${p.operators.length}</b> 種（<code>IS_NULL</code>／<code>HISTORY_SELECT</code> 依規範不產生）</li>` +
+    `<li>連線識別碼快照 <b>${p.connections.length}</b> 組（擷取於 ${p.snapDate}）——<b>只有完全相符才自動填</b>，其餘列候選並標 <code>TODO_</code></li>` +
+    `<li>CustomSql 黑名單（分號／DML／DDL／<code>xp_</code>／<code>sp_</code>）、Field 全域唯一、ExportRequiredField 一致性</li>` +
+    `<li><b>ViewDataSetting／SearchSetting／RelatedTableSetting 會序列化成字串</b>（schema 明列最易錯的一步）</li>` +
+    `<li>快照會過期：清單裡沒有<b>不代表不存在</b>，標 <code>TODO_</code> 交工程師確認，不自行發明識別碼</li>` +
+    '</ul>';
 }
 
 // ── 連線識別碼比對（語意比對，非字面相等）──
@@ -2890,12 +2472,28 @@ function validateConfig(items) {
 
 // ── 產生 + 呈現 ──
 function runConfigGeneration() {
-  if (!window._cfgPack) { showError('請先放入設定檔產生器 Skill 包'); return; }
   const miss = missingSteps();
   if (miss.length) { showError('請先完成：' + miss.join('、')); return; }
   const state = window._lastState;
   const tools = extractTools(state);
+  window._tools = tools;
+  if (window._activeToolIdx == null || window._activeToolIdx >= tools.length) window._activeToolIdx = 0;
   const wizard = document.getElementById('cfgWizardMode').checked;
+
+  // 工具切換選單（給「✏️ 欄位確認/修改」用；設定檔本身一次產出全部工具）
+  const sel = document.getElementById('toolSelect');
+  if (sel) {
+    if (tools.length > 1) {
+      sel.innerHTML = tools.map((t, i) =>
+        `<option value="${i}"${i === window._activeToolIdx ? ' selected' : ''}>${escapeHtml(t.sheetName || t.name)}</option>`).join('');
+      sel.style.display = 'inline-block';
+    } else sel.style.display = 'none';
+  }
+  const dot = document.getElementById('designDot');
+  const st  = document.getElementById('designStatusText');
+  if (dot) { dot.className = 'ai-status-dot done'; dot.style.display = 'inline-block'; }
+  if (st) st.textContent = '已解析 ' + tools.length + ' 個工具 · ' + (state.fileName || '');
+  document.getElementById('aiSection').style.display = 'block';
 
   const built = tools.map(t => buildQueryToolConfig(state, t));
   const items = built.map(b => b.item);
@@ -3008,373 +2606,6 @@ function downloadChecklist() {
 }
 
 
-// ─── 圈選改圖（離線規則引擎）────────────────────────────────────────────────
-window._editMode = false;
-window._patchStore = {};          // key: `${tpl}|${toolIdx}` → [patch]
-window._selSelector = null;       // 目前選取的元素 selector
-
-function curPatchKey() { return (window._selectedTemplate || '?') + '|' + (window._activeToolIdx || 0); }
-function getPatches() { const k = curPatchKey(); return (window._patchStore[k] = window._patchStore[k] || []); }
-function findPatch(sel) { return getPatches().find(p => p.selector === sel); }
-function newPatch(sel, label) {
-  const p = { selector: sel, label: label, color: null, bg: null, borderColor: null,
-    fontScale: 1, bold: null, align: null, radius: null, shadow: null, pad: null, text: null, hidden: false };
-  getPatches().push(p); return p;
-}
-function postToFrame(msg) {
-  const f = document.getElementById('designPreviewFrame');
-  if (f && f.contentWindow) f.contentWindow.postMessage(Object.assign({ __specEdit: 1 }, msg), '*');
-}
-
-// 顏色字典（中/英）
-const EDIT_COLORS = {
-  '藍': '#409eff', '蓝': '#409eff', 'blue': '#409eff',
-  '深藍': '#1d4ed8', '深蓝': '#1d4ed8', '海軍藍': '#1e3a8a',
-  '淺藍': '#7cc4ff', '天藍': '#38bdf8',
-  '紅': '#f56c6c', '红': '#f56c6c', 'red': '#f56c6c',
-  '綠': '#67c23a', '绿': '#67c23a', 'green': '#67c23a', '墨綠': '#166534',
-  '黃': '#e6a23c', '黄': '#e6a23c', 'yellow': '#f7c948', '金': '#d4a017',
-  '橘': '#ff9800', '橙': '#ff9800', 'orange': '#ff9800',
-  '紫': '#8b5cf6', 'purple': '#8b5cf6',
-  '粉': '#ff6b9d', 'pink': '#ff6b9d',
-  '青': '#06b6d4', '藍綠': '#06b6d4', 'cyan': '#06b6d4', '蒂芬妮': '#0abab5',
-  '灰': '#909399', 'gray': '#909399', 'grey': '#909399', '淺灰': '#f0f2f5', '深灰': '#4b5563',
-  '黑': '#303133', 'black': '#303133', '白': '#ffffff', 'white': '#ffffff',
-  '深色': '#2b2f36', 'dark': '#2b2f36', '暗': '#2b2f36',
-};
-function pickColor(text) {
-  // 長字優先（深藍 先於 藍）
-  const keys = Object.keys(EDIT_COLORS).sort((a, b) => b.length - a.length);
-  for (const k of keys) if (text.includes(k)) return { word: k, hex: EDIT_COLORS[k] };
-  return null;
-}
-
-// 提詞 → 修改 patch（回傳 {matched, note}）
-function parsePrompt(text, patch) {
-  const t = text.trim(); const low = t.toLowerCase(); let matched = false;
-  const has = (re) => re.test(t) || re.test(low);
-
-  // 文字內容修改：把文字改成「X」/ 文字改為 X / 標題改成 X / 改字為 X
-  let m = t.match(/(?:文字|標題|字|內容|標籤|title|text)\s*(?:改成|改為|換成|設為|設成|變成|改|為|:|：|=)\s*[「『"'“]?([^」』"'”]+?)[」』"'”]?$/i);
-  if (m && m[1] && m[1].trim() && !pickColor(m[1])) { patch.text = m[1].trim(); matched = true; }
-
-  // 刪除 / 隱藏 / 顯示
-  if (has(/刪除|删除|移除|隱藏|隐藏|不要顯示|不顯示|拿掉|delete|remove|hide/)) { patch.hidden = true; matched = true; }
-  if (has(/顯示|显示|show|恢復顯示/)) { patch.hidden = false; matched = true; }
-
-  // 顏色 + 目標
-  const col = pickColor(t);
-  if (col) {
-    if (has(/邊框|边框|框線|框线|外框|border/)) patch.borderColor = col.hex;
-    else if (has(/文字|字色|字體顏色|字体颜色|前景|text|font/)) patch.color = col.hex;
-    else patch.bg = col.hex; // 預設當背景（含「背景/底色/底」或未指定）
-    // 深色底時文字自動轉白，避免看不到
-    if (patch.bg && /#(30|2b|1|16|4b|18|1d|1e)/.test(patch.bg) && !patch.color) patch.color = '#ffffff';
-    matched = true;
-  }
-
-  // 大小（避開「間距大/小一點」等留白語意）
-  const spacingCtx = has(/間距|间距|padding|margin|留白|邊距|边距|寬鬆|宽松|緊湊|紧凑/);
-  if (has(/放大|加大|變大|变大|字大|bigger|larger/) || (has(/大一點|大一点/) && !spacingCtx)) { patch.fontScale = Math.min(+(patch.fontScale * 1.15).toFixed(2), 2); matched = true; }
-  if (has(/縮小|缩小|變小|变小|字小|smaller/) || (has(/小一點|小一点/) && !spacingCtx)) { patch.fontScale = Math.max(+(patch.fontScale / 1.15).toFixed(2), 0.6); matched = true; }
-
-  // 粗細
-  if (has(/粗體|粗体|加粗|變粗|变粗|bold/)) { patch.bold = true; matched = true; }
-  if (has(/變細|变细|不要粗|細一點|normal/)) { patch.bold = false; matched = true; }
-
-  // 對齊
-  if (has(/置中|中間|中间|居中|center/)) { patch.align = 'center'; matched = true; }
-  else if (has(/靠左|向左|左對齊|左对齐|left/)) { patch.align = 'left'; matched = true; }
-  else if (has(/靠右|向右|右對齊|右对齐|right/)) { patch.align = 'right'; matched = true; }
-
-  // 圓角
-  if (has(/圓角|圆角|更圓|更圆|round|radius/)) { patch.radius = 'round'; matched = true; }
-  if (has(/直角|方角|方正|square|不要圓/)) { patch.radius = 'square'; matched = true; }
-
-  // 陰影
-  if (has(/陰影|阴影|shadow|立體/)) { patch.shadow = !has(/不要|去除|移除|no\s*shadow/); matched = true; }
-
-  // 間距
-  if (has(/間距|间距|寬鬆|宽松|鬆一點|padding.*大|留白/)) { patch.pad = '大'; matched = true; }
-  if (has(/緊湊|紧凑|窄一點|padding.*小|間距.*小/)) { patch.pad = '小'; matched = true; }
-
-  return { matched, note: matched ? '' : '這句我看不懂 🤔 試試：背景改藍 / 字放大 / 置中 / 加陰影 / 把文字改成 XXX / 刪除' };
-}
-
-// patch → CSS 樣式物件
-function computeStyles(patch) {
-  const s = {};
-  if (patch.hidden) { s.display = 'none'; return s; }
-  if (patch.color) s.color = patch.color;
-  if (patch.bg) s.background = patch.bg;
-  if (patch.borderColor) { s.borderColor = patch.borderColor; s.borderStyle = 'solid'; s.borderWidth = '1px'; }
-  if (patch.fontScale && patch.fontScale !== 1) s.fontSize = patch.fontScale.toFixed(2) + 'em';
-  if (patch.bold === true) s.fontWeight = '700'; else if (patch.bold === false) s.fontWeight = '400';
-  if (patch.align) s.textAlign = patch.align;
-  if (patch.radius === 'round') s.borderRadius = '12px'; else if (patch.radius === 'square') s.borderRadius = '0';
-  if (patch.shadow === true) s.boxShadow = '0 4px 16px rgba(0,0,0,.18)'; else if (patch.shadow === false) s.boxShadow = 'none';
-  if (patch.pad === '大') s.padding = '16px'; else if (patch.pad === '小') s.padding = '4px 6px';
-  return s;
-}
-
-function sendPatch(patch) {
-  postToFrame({ type: 'applyPatch', selector: patch.selector, styles: computeStyles(patch), text: patch.text, hidden: patch.hidden });
-}
-function reapplyAll() { getPatches().forEach(sendPatch); }
-
-// ── 模式切換 ──
-function toggleEditMode() {
-  window._editMode = !window._editMode;
-  const btn = document.getElementById('editModeBtn');
-  const strip = document.getElementById('editStrip');
-  btn.classList.toggle('edit-on', window._editMode);
-  strip.style.display = window._editMode ? 'flex' : 'none';
-  if (window._editMode) switchDesignTab('preview');
-  else closeBubble();
-  updateClearBtn();
-  postToFrame({ type: 'editMode', on: window._editMode });
-}
-function updateClearBtn() {
-  const b = document.getElementById('editClearAll');
-  if (b) b.style.display = getPatches().length ? 'inline-block' : 'none';
-}
-
-// ── 氣泡 ──
-const EDIT_CHIPS = [
-  ['放大', '放大'], ['縮小', '縮小'], ['粗體', '粗體'], ['置中', '置中'],
-  ['圓角', '圓角'], ['陰影', '加陰影'], ['背景藍', '背景改藍'], ['背景綠', '背景改綠'],
-  ['深色底', '背景改深色'], ['文字白', '文字改白色'], ['刪除', '刪除'],
-];
-function openBubble(selector, label, rect) {
-  window._selSelector = selector;
-  const bubble = document.getElementById('editBubble');
-  document.getElementById('ebTarget').textContent = '已選：' + label;
-  const chips = document.getElementById('ebChips');
-  chips.innerHTML = '';
-  EDIT_CHIPS.forEach(([lab, p]) => {
-    const c = document.createElement('span'); c.className = 'eb-chip'; c.textContent = lab;
-    c.onclick = () => applyPromptText(p);
-    chips.appendChild(c);
-  });
-  const inp = document.getElementById('ebInput'); inp.value = '';
-  const hint = document.getElementById('ebHint'); hint.className = 'eb-hint'; hint.textContent = '';
-  bubble.style.display = 'block';
-  // 定位（rect 為 iframe 內座標；stage 與 iframe 同起點）
-  const stage = document.getElementById('designPreviewStage');
-  const sw = stage.clientWidth, sh = stage.clientHeight;
-  const bw = bubble.offsetWidth, bh = bubble.offsetHeight;
-  let left = Math.max(6, Math.min(rect.left, sw - bw - 6));
-  let top = rect.bottom + 6;
-  if (top + bh > sh - 4) top = Math.max(4, rect.top - bh - 6);
-  bubble.style.left = left + 'px'; bubble.style.top = top + 'px';
-  setTimeout(() => inp.focus(), 30);
-}
-function closeBubble() {
-  const b = document.getElementById('editBubble'); if (b) b.style.display = 'none';
-  window._selSelector = null;
-  postToFrame({ type: 'deselect' });
-}
-function applyPrompt() { applyPromptText(document.getElementById('ebInput').value); }
-function applyPromptText(text) {
-  if (!window._selSelector || !text.trim()) return;
-  const label = document.getElementById('ebTarget').textContent.replace(/^已選：/, '');
-  let patch = findPatch(window._selSelector) || newPatch(window._selSelector, label);
-  const res = parsePrompt(text, patch);
-  const hint = document.getElementById('ebHint');
-  if (!res.matched) { hint.className = 'eb-hint warn'; hint.textContent = res.note; return; }
-  sendPatch(patch);
-  document.getElementById('ebInput').value = '';
-  hint.className = 'eb-hint ok'; hint.textContent = '✓ 已套用「' + text.trim() + '」，可繼續打下一個指令';
-  updateClearBtn();
-}
-function revertSelected() {
-  if (!window._selSelector) return;
-  const arr = getPatches(); const i = arr.findIndex(p => p.selector === window._selSelector);
-  if (i >= 0) arr.splice(i, 1);
-  closeBubble(); updateClearBtn();
-  reRenderPreview();
-}
-function clearAllPatches() {
-  window._patchStore[curPatchKey()] = [];
-  closeBubble(); updateClearBtn();
-  reRenderPreview();
-}
-function reRenderPreview() {
-  const f = document.getElementById('designPreviewFrame');
-  if (window._generatedVueCode) f.srcdoc = buildVuePreview(window._generatedVueCode);
-}
-
-// ── 來自 iframe 的訊息 ──
-window.addEventListener('message', (e) => {
-  const d = e.data; if (!d || d.__specEdit !== 1) return;
-  if (d.type === 'ready') {
-    postToFrame({ type: 'editMode', on: window._editMode });
-    reapplyAll(); updateClearBtn();
-  } else if (d.type === 'select') {
-    openBubble(d.selector, d.label, d.rect);
-  }
-});
-
-// camelCase 樣式物件 → CSS 字串
-function styleObjToCss(o) {
-  return Object.keys(o).map(k => k.replace(/[A-Z]/g, m => '-' + m.toLowerCase()) + ': ' + o[k] + ';').join(' ');
-}
-// 把某個工具的圈選修改，注入成 .vue 檔尾的 <style> 區塊
-function injectPatchCss(code, patches) {
-  if (!patches || !patches.length) return code;
-  const rules = []; let textNotes = 0;
-  patches.forEach(p => {
-    const styles = computeStyles(p);
-    const sel = p.selector.replace(/^#app\s*>\s*/, '');
-    if (sel && Object.keys(styles).length) rules.push('  ' + sel + ' { ' + styleObjToCss(styles) + ' }');
-    if (p.text != null && p.text !== '') textNotes++;
-  });
-  if (!rules.length && !textNotes) return code;
-  let block = '\n<style>\n/* ── 圈選微調（示意版面用；最終樣式請以設計稿為準）── */\n';
-  block += rules.join('\n') + '\n';
-  if (textNotes) block += '/* 註：另有 ' + textNotes + ' 處文字內容於預覽中手動修改，請於 <template> 對應調整 */\n';
-  block += '</style>\n';
-  const i = code.lastIndexOf('</style>');
-  return i >= 0 ? code.slice(0, i + 8) + '\n' + block + code.slice(i + 8) : code + block;
-}
-
-async function downloadDesignHtml() {
-  const state = window._lastState;
-  const tools = window._tools || [];
-  const tpl = window._selectedTemplate;
-  const toVueName = (s) => {
-    const m = extractSpecMeta(state, typeof s === 'object' ? s : null);
-    return (m.entity && m.entity !== 'YourTable') ? m.entity
-      : String(typeof s === 'object' ? s.name : s).replace(/[^\w一-龥]+/g, '').slice(0, 40) || 'AdminView';
-  };
-
-
-  // 多工具 → 全部 .vue 打包成 ZIP
-  if (tools.length > 1) {
-    const zip = new JSZip();
-    tools.forEach((tool, idx) => {
-      let code = buildLocalVue(tpl, state, tool);
-      code = injectPatchCss(code, window._patchStore[tpl + '|' + idx]);
-      zip.file('views/' + toVueName(tool) + '.vue', code);
-    });
-    const base = state ? state.fileName.replace(/\.[^.]+$/, '') : 'views';
-    const blob = await zip.generateAsync({ type: 'blob' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = base + '_vue.zip'; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 3000);
-    showToast('⬇ 已打包 ' + tools.length + ' 個 .vue');
-    return;
-  }
-
-  let code = window._generatedVueCode || '';
-  if (!code) return;
-  code = injectPatchCss(code, window._patchStore[curPatchKey()]);
-  const base  = state ? state.fileName.replace(/\.[^.]+$/, '') : 'AdminView';
-  const name  = base.replace(/[^\w一-龥]+/g, ' ').trim().split(/\s+/)
-                    .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('') || 'AdminView';
-  const blob  = new Blob([code], { type: 'text/plain' });
-  const url   = URL.createObjectURL(blob);
-  const a     = document.createElement('a');
-  a.href = url; a.download = name + '.vue'; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 3000);
-}
-
-// 用 vue3-sfc-loader 在 iframe 內編譯並掛載 .vue，搭配 Element Plus
-function buildVuePreview(vueCode) {
-  const b64 = btoa(unescape(encodeURIComponent(vueCode)));
-  return `<!DOCTYPE html><html lang="zh-TW"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus@2.7.8/dist/index.css">
-<script src="https://cdn.jsdelivr.net/npm/vue@3.4.38/dist/vue.global.prod.js"><\/script>
-<script src="https://cdn.jsdelivr.net/npm/element-plus@2.7.8/dist/index.full.min.js"><\/script>
-<script src="https://cdn.jsdelivr.net/npm/vue3-sfc-loader@0.9.5/dist/vue3-sfc-loader.js"><\/script>
-<style>html,body{margin:0;padding:0;font-family:-apple-system,'Segoe UI',sans-serif;}#app{min-height:100vh;}#err{padding:20px;color:#c00;font-family:monospace;white-space:pre-wrap;font-size:13px;}</style>
-</head><body><div id="app"></div><div id="err"></div>
-<script>
-if (!window.Vue || !window.ElementPlus || !window['vue3-sfc-loader']) {
-  document.getElementById('err').textContent = '⚠️ 預覽元件（Vue / Element Plus）需要網路連線載入，目前無法連上 CDN。\\n請確認網路後重新生成；此問題不影響下載的 .vue 檔案。';
-  throw new Error('CDN unavailable');
-}
-const vueSource = decodeURIComponent(escape(atob('${b64}')));
-const { loadModule } = window['vue3-sfc-loader'];
-const options = {
-  moduleCache: { vue: window.Vue },
-  getFile() { return Promise.resolve(vueSource); },
-  addStyle(text) { const s = document.createElement('style'); s.textContent = text; document.head.appendChild(s); },
-  handleModule(type, source) { if (type === '.css') { options.addStyle(source); return null; } },
-};
-loadModule('/Component.vue', options)
-  .then(comp => {
-    const app = window.Vue.createApp(comp);
-    app.use(window.ElementPlus);
-    app.mount('#app');
-    setTimeout(setupSpecEdit, 0);
-  })
-  .catch(e => { document.getElementById('err').textContent = '預覽編譯錯誤：\\n' + (e && e.message ? e.message : e); });
-
-// ── 圈選改圖：iframe 內的選取與套用 ──
-function setupSpecEdit() {
-  var editMode = false, hi = null;
-  function ensureHi() {
-    if (hi) return hi;
-    hi = document.createElement('div');
-    hi.style.cssText = 'position:fixed;z-index:2147483000;pointer-events:none;border:2px solid #409eff;background:rgba(64,158,255,.14);border-radius:4px;display:none;';
-    document.body.appendChild(hi); return hi;
-  }
-  function moveHi(el) {
-    var h = ensureHi(); if (!el) { h.style.display = 'none'; return; }
-    var r = el.getBoundingClientRect();
-    h.style.display = 'block'; h.style.left = r.left + 'px'; h.style.top = r.top + 'px';
-    h.style.width = r.width + 'px'; h.style.height = r.height + 'px';
-  }
-  function labelOf(el) {
-    var txt = (el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 18);
-    return txt ? ('「' + txt + '」') : el.tagName.toLowerCase();
-  }
-  function cssPath(el) {
-    if (!el || el.id === 'app' || el === document.body) return '#app';
-    var parts = [];
-    while (el && el.nodeType === 1 && el.id !== 'app' && el !== document.body) {
-      var sel = el.tagName.toLowerCase(), p = el.parentElement;
-      if (p) {
-        var same = Array.prototype.filter.call(p.children, function (c) { return c.tagName === el.tagName; });
-        if (same.length > 1) sel += ':nth-of-type(' + (same.indexOf(el) + 1) + ')';
-      }
-      parts.unshift(sel); el = p;
-      if (el && el.id === 'app') { parts.unshift('#app'); break; }
-    }
-    return parts.join(' > ');
-  }
-  document.addEventListener('mousemove', function (e) {
-    if (!editMode) return; var el = e.target; if (!el || el === hi) return; moveHi(el);
-  }, true);
-  document.addEventListener('click', function (e) {
-    if (!editMode) return; e.preventDefault(); e.stopPropagation();
-    var el = e.target; if (!el || el === hi) return;
-    var r = el.getBoundingClientRect();
-    parent.postMessage({ __specEdit: 1, type: 'select', selector: cssPath(el), label: labelOf(el),
-      rect: { left: r.left, top: r.top, bottom: r.bottom, right: r.right, width: r.width, height: r.height } }, '*');
-  }, true);
-  function applyPatch(d) {
-    var el = document.querySelector(d.selector); if (!el) return;
-    if (el._os === undefined) el._os = el.getAttribute('style') || '';
-    el.setAttribute('style', el._os);
-    var s = d.styles || {}; for (var k in s) el.style[k] = s[k];
-    if (d.text != null && d.text !== '') el.textContent = d.text;
-  }
-  window.addEventListener('message', function (e) {
-    var d = e.data; if (!d || d.__specEdit !== 1) return;
-    if (d.type === 'editMode') { editMode = d.on; if (!editMode) moveHi(null); document.body.style.cursor = editMode ? 'crosshair' : ''; }
-    else if (d.type === 'applyPatch') applyPatch(d);
-    else if (d.type === 'deselect') { moveHi(null); }
-  });
-  parent.postMessage({ __specEdit: 1, type: 'ready' }, '*');
-}
-<\/script>
-</body></html>`;
-}
-
 // ─── Theme toggle ─────────────────────────────────────────────────────────────
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
@@ -3424,28 +2655,6 @@ uploadZone.addEventListener('drop', e => {
   if (file) processFile(file);
 });
 
-// ─── Step 3: Skill 包載入 ─────────────────────────────────────────────────────
-const skillZone  = document.getElementById('skillZone');
-const skillInput = document.getElementById('skillInput');
-
-skillZone.addEventListener('click', e => {
-  if (window._cfgPack) return; // 已載入 → 不重開選檔（移除鈕有自己的 handler）
-  skillInput.click();
-});
-skillInput.addEventListener('change', e => { if (e.target.files[0]) loadCfgPack(e.target.files[0]); });
-skillZone.addEventListener('dragenter', e => { e.preventDefault(); skillZone.classList.add('drag-over'); });
-skillZone.addEventListener('dragover',  e => { e.preventDefault(); skillZone.classList.add('drag-over'); });
-skillZone.addEventListener('dragleave', e => {
-  if (!skillZone.contains(e.relatedTarget)) skillZone.classList.remove('drag-over');
-});
-skillZone.addEventListener('drop', e => {
-  e.preventDefault();
-  e.stopPropagation();
-  skillZone.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file) loadCfgPack(file);
-});
-
 document.getElementById('resetBtn').addEventListener('click', () => {
   document.getElementById('results').classList.remove('active');
   document.getElementById('aiSection').style.display = 'none';
@@ -3466,6 +2675,9 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   document.getElementById('fieldEditor').style.display = 'none';
   window._fieldOverrides = null;
 });
+
+// 內建規範明細（頁面載入即渲染）
+renderBuiltinRules();
 </script>
 </body>
 </html>
