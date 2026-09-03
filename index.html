@@ -532,6 +532,38 @@ body {
 .fe-rules ul { margin: 0; padding-left: 17px; }
 
 /* ── 設定檔輸出 ───────────────────────────────────────── */
+/* 分頁勾選 */
+.cfg-picker {
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface2); padding: 11px 13px; margin-bottom: 12px; font-size: 0.78rem;
+}
+.cfg-picker .cp-head { font-weight: 700; margin-bottom: 3px; }
+.cfg-picker .cp-sub { font-size: 0.73rem; color: var(--text2); margin-bottom: 9px; line-height: 1.55; }
+.cp-row {
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 7px 9px; border-radius: 6px; border: 1px solid transparent;
+}
+.cp-row + .cp-row { margin-top: 3px; }
+.cp-row:hover { background: var(--bg); }
+.cp-row.off { opacity: 0.62; }
+.cp-row input[type="checkbox"] { width: 15px; height: 15px; margin-top: 2px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.cp-body { flex: 1; min-width: 0; }
+.cp-name { font-weight: 600; }
+.cp-why { font-size: 0.72rem; color: var(--text2); margin-top: 2px; line-height: 1.5; }
+.cp-badge {
+  font-size: 0.66rem; font-weight: 700; padding: 1px 7px; border-radius: 20px; margin-left: 7px;
+  vertical-align: middle; white-space: nowrap;
+}
+.cp-badge.ok   { background: color-mix(in srgb, var(--good, #67c23a) 18%, transparent); color: var(--good, #67c23a); }
+.cp-badge.weak { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
+.cp-badge.no   { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
+.cp-actions { margin-top: 8px; display: flex; gap: 8px; }
+.cp-mini {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+  padding: 3px 10px; font-size: 0.72rem; color: var(--text2); cursor: pointer; font-weight: 600;
+}
+.cp-mini:hover { color: var(--accent); border-color: var(--accent); }
+
 .cfg-verdict {
   border-radius: 8px; padding: 10px 13px; font-size: 0.8rem;
   margin-bottom: 12px; font-weight: 600; line-height: 1.6;
@@ -726,6 +758,8 @@ body {
   </div>
 
   <div id="cfgResult" style="display:none;">
+    <!-- 要產出哪些分頁 -->
+    <div class="cfg-picker" id="cfgPicker"></div>
     <!-- 驗證結果 -->
     <div class="cfg-verdict" id="cfgVerdict"></div>
     <!-- 待確認清單 -->
@@ -1725,6 +1759,7 @@ async function processFile(file) {
     window._lastState = { flatText, parsed, parsedType: parsed.type, fileName: file.name, found, docType, specMd: md };
     window._activeToolIdx = 0;      // 新文件從第一個工具開始
     window._fieldOverrides = null;  // 舊文件的欄位覆寫不得沿用（同名分頁會誤套）
+    window._toolSel = null;         // 換文件 → 分頁勾選重新依內容判斷
 
     // 顯示生成前端介面區（移到成功路徑末尾）
     const aiSection = document.getElementById('aiSection');
@@ -2547,6 +2582,57 @@ function validateConfig(items) {
 }
 
 // ── 產生 + 呈現 ──
+// 判斷某個分頁像不像「真的查詢工具」：有沒有資料表、欄位是明確定義還是猜的
+function assessTool(state, tool) {
+  const text = (tool && tool.flatText) || state.flatText || '';
+  const hasTable = /\[\w+\]\s*\.\s*\[\w+\]\s*\.\s*\[\w+\]/.test(text);
+  const src = extractFieldPairs(text).length >= 3 ? 'table'
+            : extractMappedFieldPairs(text).length >= 3 ? 'mapped' : 'guess';
+  if (hasTable && src !== 'guess') {
+    return { level: 'ok', badge: '可產出', why: '有資料表位置，且欄位取自規格書的' + (src === 'table' ? '欄位定義表' : '欄位對照表') };
+  }
+  if (hasTable) {
+    return { level: 'weak', badge: '欄位為推測', why: '有資料表位置，但找不到欄位定義表 → 欄位是從內文推測的，可能不是真的欄位' };
+  }
+  return { level: 'no', badge: '不像工具', why: '沒有資料表位置、也沒有欄位定義表 → 多半是總覽／結構說明頁，不是查詢工具' };
+}
+
+function renderToolPicker(tools, assess, pickedCount, anyOk) {
+  const el = document.getElementById('cfgPicker');
+  if (!el) return;
+  const sub = anyOk
+    ? '預設只勾選「欄位有明確定義」的分頁。總覽頁、結構說明頁這類不是查詢工具的分頁，硬產出會變成壞掉的工具，已先不勾。'
+    : '這份文件沒有任何分頁找得到欄位定義表，所以全部先勾起來——請自行取消不需要的分頁。';
+  el.innerHTML =
+    `<div class="cp-head">📄 要產出哪些分頁？（已勾 ${pickedCount} / ${tools.length}）</div>` +
+    `<div class="cp-sub">${sub}</div>` +
+    tools.map((t, i) => {
+      const a = assess[i], on = !!window._toolSel[i];
+      return `<label class="cp-row${on ? '' : ' off'}">
+        <input type="checkbox" ${on ? 'checked' : ''} onchange="toggleToolPick(${i}, this.checked)">
+        <span class="cp-body">
+          <span class="cp-name">${escapeHtml(t.sheetName || t.name)}</span><span class="cp-badge ${a.level}">${a.badge}</span>
+          <span class="cp-why">${escapeHtml(a.why)}</span>
+        </span>
+      </label>`;
+    }).join('') +
+    `<div class="cp-actions">
+       <button class="cp-mini" onclick="pickAllTools(true)">全選</button>
+       <button class="cp-mini" onclick="pickAllTools(false)">全不選</button>
+     </div>`;
+}
+
+function toggleToolPick(i, on) {
+  (window._toolSel = window._toolSel || {})[i] = on;
+  runConfigGeneration();
+}
+function pickAllTools(on) {
+  const t = window._tools || [];
+  window._toolSel = {};
+  t.forEach((_, i) => { window._toolSel[i] = on; });
+  runConfigGeneration();
+}
+
 function runConfigGeneration() {
   const miss = missingSteps();
   if (miss.length) { showError('請先完成：' + miss.join('、')); return; }
@@ -2571,7 +2657,34 @@ function runConfigGeneration() {
   if (st) st.textContent = '已解析 ' + tools.length + ' 個工具 · ' + (state.fileName || '');
   document.getElementById('aiSection').style.display = 'block';
 
-  const built = tools.map(t => buildQueryToolConfig(state, t));
+  // ── 分頁勾選：預設只勾「欄位有明確定義」的；全都沒有時才全勾（避免產出空檔）──
+  const assess = tools.map(t => assessTool(state, t));
+  if (!window._toolSel) {
+    const anyOk = assess.some(a => a.level === 'ok');
+    window._toolSel = {};
+    assess.forEach((a, i) => { window._toolSel[i] = anyOk ? a.level === 'ok' : a.level !== 'no'; });
+  }
+  const picked = tools.map((t, i) => i).filter(i => window._toolSel[i]);
+  renderToolPicker(tools, assess, picked.length, assess.some(a => a.level === 'ok'));
+
+  document.getElementById('cfgSection').style.display = 'block';
+  document.getElementById('cfgEmptySlot').style.display = 'none';
+  document.getElementById('cfgResult').style.display = 'block';
+
+  if (!picked.length) {
+    document.getElementById('cfgVerdict').className = 'cfg-verdict bad';
+    document.getElementById('cfgVerdict').innerHTML = '❌ 沒有勾選任何分頁，無法產生設定檔——請至少勾一個';
+    document.getElementById('cfgTodo').style.display = 'none';
+    document.getElementById('cfgTable').innerHTML = '';
+    document.getElementById('cfgJson').textContent = '';
+    document.getElementById('dlCfgBtn').style.display = 'none';
+    document.getElementById('dlChecklistBtn').style.display = 'none';
+    window._cfgOut = null;
+    return;
+  }
+
+  const pickedTools = picked.map(i => tools[i]);
+  const built = pickedTools.map(t => buildQueryToolConfig(state, t));
   const items = built.map(b => b.item);
   const { errors, warns } = validateConfig(items);
 
@@ -2588,14 +2701,13 @@ function runConfigGeneration() {
 
   window._cfgOut = {
     payload, items, wizard,
-    rows: built.reduce((a, b, i) => a.concat(tools.length > 1 ? [['— ' + tools[i].name + ' —', '', 'ok', '']] : [], b.rows), []),
+    rows: built.reduce((a, b, i) => a.concat(pickedTools.length > 1 ? [['— ' + pickedTools[i].name + ' —', '', 'ok', '']] : [], b.rows), []),
     todos: Array.from(new Set(built.reduce((a, b) => a.concat(b.todos), []))),
-    errors, warns, toolCount: tools.length,
+    errors, warns,
+    toolCount: pickedTools.length,
+    skipped: tools.filter((t, i) => !window._toolSel[i]).map(t => t.name),
   };
 
-  document.getElementById('cfgSection').style.display = 'block';
-  document.getElementById('cfgEmptySlot').style.display = 'none';
-  document.getElementById('cfgResult').style.display = 'block';
   document.getElementById('cfgBadge').textContent = wizard ? 'query-tool/wizard（單一物件）' : 'query-tool/import（陣列）';
 
   const v = document.getElementById('cfgVerdict');
@@ -2657,6 +2769,7 @@ function downloadChecklist() {
     '', `- 來源規格書：${cfgBaseName()}`,
     `- 產出格式：${o.wizard ? 'wizard（單一物件，連選單一起新建）' : 'import（陣列）'}`,
     `- 工具數：${o.toolCount}`,
+    ...(o.skipped && o.skipped.length ? [`- 未納入的分頁（${o.skipped.length}）：${o.skipped.join('、')}`] : []),
     `- 本機驗證：${o.errors.length ? '❌ ' + o.errors.length + ' 項錯誤' : '✅ 通過'}`,
     '', '## 對照表', '',
     '| 規格文件項目 | 對應設定 | 狀態 | 說明 |', '|---|---|---|---|',
@@ -2750,6 +2863,7 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   document.getElementById('dlChecklistBtn').style.display = 'none';
   document.getElementById('fieldEditor').style.display = 'none';
   window._fieldOverrides = null;
+  window._toolSel = null;
 });
 
 // 內建規範明細（頁面載入即渲染）
