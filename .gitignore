@@ -11,8 +11,8 @@ admin3.jpg
 .claude/scheduled_tasks.lock
 
 # 團隊內部 skill 規範包（不進公開 repo）
-skills.zip
-*.agents.zip
+# 本專案沒有任何 .zip 屬於原始碼，一律排除，避免內部規範／連線識別碼被推上公開 repo
+*.zip
 
 # 錄影／示範影片（體積大，不進版控）
 *.mp4

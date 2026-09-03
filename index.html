@@ -527,6 +527,33 @@ body {
 .fe-rules .fr-head { font-weight: 700; color: var(--text); margin-bottom: 4px; }
 .fe-rules ul { margin: 0; padding-left: 17px; }
 
+/* ── 設定檔輸出 ───────────────────────────────────────── */
+.cfg-verdict {
+  border-radius: 8px; padding: 10px 13px; font-size: 0.8rem;
+  margin-bottom: 12px; font-weight: 600; line-height: 1.6;
+}
+.cfg-verdict.ok   { background: color-mix(in srgb, var(--good, #67c23a) 14%, var(--surface2)); color: var(--good, #67c23a); }
+.cfg-verdict.bad  { background: color-mix(in srgb, var(--bad) 14%, var(--surface2)); color: var(--bad); }
+.cfg-verdict ul { margin: 6px 0 0; padding-left: 18px; font-weight: 400; }
+.cfg-todo {
+  background: color-mix(in srgb, var(--warn) 10%, var(--surface2));
+  border: 1px solid color-mix(in srgb, var(--warn) 32%, var(--border));
+  border-radius: 8px; padding: 11px 14px; margin-bottom: 12px; font-size: 0.78rem; line-height: 1.65;
+}
+.cfg-todo .ct-head { font-weight: 700; color: var(--warn); margin-bottom: 5px; }
+.cfg-todo ul { margin: 0; padding-left: 18px; color: var(--text); }
+.cfg-todo code { background: var(--bg); border-radius: 4px; padding: 0 4px; }
+.cfg-tabs { display: flex; gap: 2px; background: var(--bg); border-radius: 6px; padding: 2px; width: fit-content; margin-bottom: 10px; }
+.cfg-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+.cfg-table th, .cfg-table td {
+  border: 1px solid var(--border); padding: 6px 9px; text-align: left; vertical-align: top;
+}
+.cfg-table th { background: var(--surface2); font-weight: 700; white-space: nowrap; }
+.cfg-table td code { background: var(--bg); border-radius: 4px; padding: 0 4px; font-size: 0.72rem; }
+.cfg-table .st-ok   { color: var(--good, #67c23a); white-space: nowrap; }
+.cfg-table .st-warn { color: var(--warn); white-space: nowrap; }
+#cfgListWrap { overflow-x: auto; }
+
 /* ── 圈選改圖 ─────────────────────────────────────────── */
 .design-tab.edit-on {
   background: var(--accent); color: #fff;
@@ -644,44 +671,24 @@ body {
     </div>
   </div>
 
-  <!-- Step 3: 放入 Skill -->
-  <div class="step-label" style="margin:24px 0 12px;"><span class="step-num">3</span> 放入 Skill 規範包</div>
+  <!-- Step 3: 放入設定檔產生器 Skill 包 -->
+  <div class="step-label" style="margin:24px 0 12px;"><span class="step-num">3</span> 放入設定檔產生器 Skill 包（必要）</div>
 
-  <!-- 3a 後端 skill 包（必要）-->
   <div class="skill-zone" id="skillZone">
     <input type="file" id="skillInput" accept=".zip" style="display:none;">
     <div class="skill-empty" id="skillEmpty">
       <span class="skill-icon">🧩</span>
       <div>
-        <div class="skill-title">後端 Skill 包（.zip）<span class="skill-tag req">必要</span></div>
-        <div class="skill-desc">團隊 .agents 後端規範（Controller / Repository / DTO 慣例），後端程式將依此產出。<b>三個步驟都完成後才會開始生成</b>。</div>
+        <div class="skill-title">query-tool-config-generator（.zip）<span class="skill-tag req">必要</span></div>
+        <div class="skill-desc">載入後,工具會依包內 <code>schema.md</code> 的欄位形狀與白名單、以及 78 組連線識別碼快照,把規格書轉成<b>可直接匯入後台「新增自動化工具」的設定檔 JSON</b>。<b>三個步驟都完成後才會開始生成</b>。</div>
       </div>
     </div>
     <div class="skill-loaded" id="skillLoaded" style="display:none;">
       <div class="skill-loaded-head">
-        <span>✅ 已載入後端 Skill 包：<b id="skillPackName"></b></span>
+        <span>✅ 已載入設定檔產生器：<b id="skillPackName"></b></span>
         <button class="skill-remove" onclick="removeSkillPack(event)">✕ 移除</button>
       </div>
       <div class="skill-chips" id="skillChips"></div>
-    </div>
-  </div>
-
-  <!-- 3b 前端 skill 包（選用，載入後前端改依此規範產出）-->
-  <div class="skill-zone fe-zone" id="feSkillZone" style="margin-top:10px;">
-    <input type="file" id="feSkillInput" accept=".zip" style="display:none;">
-    <div class="skill-empty" id="feSkillEmpty">
-      <span class="skill-icon">🎨</span>
-      <div>
-        <div class="skill-title">前端 Skill 包（.zip）<span class="skill-tag opt">選用</span></div>
-        <div class="skill-desc">載入團隊前端 .agents 規範（如 <code>page-generate</code> / <code>nuxt-ui</code>）後，<b>前端不再產出獨立 Element Plus 檔，改依包內規範產出 Nuxt UI 頁面</b>（API composable、頁面 SFC、i18n、路由權限）。未放則維持現況。</div>
-      </div>
-    </div>
-    <div class="skill-loaded" id="feSkillLoaded" style="display:none;">
-      <div class="skill-loaded-head">
-        <span>✅ 已載入前端 Skill 包：<b id="feSkillPackName"></b></span>
-        <button class="skill-remove" onclick="removeFeSkillPack(event)">✕ 移除</button>
-      </div>
-      <div class="skill-chips" id="feSkillChips"></div>
       <div class="fe-rules" id="feRules"></div>
     </div>
   </div>
@@ -710,8 +717,8 @@ body {
 <!-- ── 生成前端介面區 ───────────────────────────────────────── -->
 <div class="ai-section" id="aiSection" style="display:none;">
   <div class="ai-header">
-    <div class="ai-title">🎨 生成前端介面</div>
-    <div class="ai-subtitle">依規格書自動產出 Vue 3 + Element Plus 前端，完全免費、免帳號、免 API</div>
+    <div class="ai-title">⚙️ 產出查詢工具設定檔</div>
+    <div class="ai-subtitle">依規格書產出可直接匯入後台「新增自動化工具」的 JSON 設定檔；下方預覽為版面/欄位示意</div>
   </div>
 
   <!-- 生成 Vue（全寬） -->
@@ -791,30 +798,46 @@ body {
   </div>
 </div>
 
-<!-- ── 第二階段：後端程式生成（依 .agents skill 慣例）─────────── -->
-<div class="stage2-section" id="stage2Section" style="display:none;">
+<!-- ── 查詢工具設定檔（可匯入後台「新增自動化工具」）─────────── -->
+<div class="stage2-section" id="cfgSection" style="display:none;">
   <div class="stage2-head">
-    <div class="ai-title" style="background:none;-webkit-text-fill-color:initial;color:var(--text);">🧩 第二階段 · 生成後端程式（C# API）</div>
-    <span class="stage2-badge">GTW_Admin2Api 慣例</span>
+    <div class="ai-title" style="background:none;-webkit-text-fill-color:initial;color:var(--text);">⚙️ 查詢工具設定檔（可匯入）</div>
+    <span class="stage2-badge" id="cfgBadge">query-tool/import</span>
   </div>
   <p style="font-size:0.78rem;color:var(--text2);margin-bottom:12px;line-height:1.55;">
-    依規格欄位與 DB 表名，產出符合團隊 skill 規範的完整後端：Controller（GT_AdminControllerBase / 權限 / 白名單排序）、Repository + UnitOfWork（介面 + 實作）、Entity、DTO，以及對接第一階段 Vue 的 <b>api.js</b>。
+    依規格書的資料表與欄位，產出 <code>POST web/query-tool/import</code> 可直接吃的 JSON。
+    <b>三個 Setting 欄位已依 schema 規定序列化成字串</b>（這是最容易做錯的一步）。
+    產出後請先看「待確認清單」,把 <code>TODO_</code> 項目補齊再匯入。
   </p>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-    <button class="btn-green" id="runBackendBtn" onclick="runBackendGeneration()">⚙ 生成後端程式</button>
-    <button class="btn btn-success" id="downloadBackendBtn" onclick="downloadBackendZip()" style="display:none;">⬇ 下載後端 ZIP</button>
-    <button class="btn-orange" id="packageBtn" onclick="downloadDeliveryZip()" style="display:none;">📦 一鍵打包交付（前端＋後端）</button>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
+    <button class="btn-green" onclick="runConfigGeneration()">⚙ 產生設定檔</button>
+    <button class="btn btn-success" id="dlCfgBtn" onclick="downloadConfigJson()" style="display:none;">⬇ 下載設定檔 JSON</button>
+    <button class="btn btn-secondary" id="dlChecklistBtn" onclick="downloadChecklist()" style="display:none;">📋 下載檢查清單</button>
+    <label style="display:flex;align-items:center;gap:6px;font-size:0.76rem;color:var(--text2);margin-left:4px;">
+      <input type="checkbox" id="cfgWizardMode" onchange="runConfigGeneration()" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer;">
+      連選單節點一起新建（wizard 格式）
+    </label>
   </div>
-  <div class="api-key-hint" id="deliveryHint" style="display:none;">💡 交付流程：點「📦 一鍵打包交付」下載完整 ZIP（含 Vue 前端、C# 後端、交付說明），連同原始規格書一起交給工程師即可</div>
-  <div class="stage2-slot" id="stage2Slot">
-    <div class="stage2-empty" id="stage2Empty">
-      <div class="s2-icon">📦</div>
-      <div class="s2-title">尚未生成</div>
-      <div class="s2-desc">上傳規格文件後，點「⚙ 生成後端程式」即可產出檔案</div>
+
+  <div id="cfgResult" style="display:none;">
+    <!-- 驗證結果 -->
+    <div class="cfg-verdict" id="cfgVerdict"></div>
+    <!-- 待確認清單 -->
+    <div class="cfg-todo" id="cfgTodo"></div>
+    <!-- 對照表 -->
+    <div class="cfg-tabs">
+      <button class="design-tab active" id="cfgTabList" onclick="switchCfgTab('list')">對照表</button>
+      <button class="design-tab" id="cfgTabJson" onclick="switchCfgTab('json')">JSON</button>
     </div>
-    <div id="stage2Result" style="display:none;width:100%;">
-      <div class="s2-files" id="stage2Files"></div>
-      <pre class="s2-code" id="stage2Code"></pre>
+    <div id="cfgListWrap"><table class="cfg-table" id="cfgTable"></table></div>
+    <pre class="s2-code" id="cfgJson" style="display:none;"></pre>
+  </div>
+
+  <div class="stage2-slot" id="cfgEmptySlot">
+    <div class="stage2-empty">
+      <div class="s2-icon">⚙️</div>
+      <div class="s2-title">尚未產生設定檔</div>
+      <div class="s2-desc">完成三個步驟後會自動產生，或點上方「⚙ 產生設定檔」</div>
     </div>
   </div>
 </div>
@@ -1806,7 +1829,7 @@ async function processFile(file) {
       showProgress(false);
       document.getElementById('results').classList.add('active');
       aiSection.style.display = 'block';
-      document.getElementById('stage2Section').style.display = 'block';
+      document.getElementById('cfgSection').style.display = 'block';
       // 已選模板 → 自動本地生成對應後台畫面
       autoGenerateIfReady();
     }, 400);
@@ -1954,7 +1977,7 @@ function missingSteps() {
   const miss = [];
   if (!window._selectedTemplate) miss.push('步驟 1 選擇模板');
   if (!window._lastState)       miss.push('步驟 2 上傳規格文件');
-  if (!window._skillPack)       miss.push('步驟 3 放入 Skill 規範包');
+  if (!window._cfgPack)         miss.push('步驟 3 放入設定檔產生器 Skill 包');
   return miss;
 }
 
@@ -1965,7 +1988,7 @@ function autoGenerateIfReady() {
     return;
   }
   runLocalGeneration();
-  runBackendGeneration(); // 第二階段：後端程式同步生成（與前端同一份欄位）
+  runConfigGeneration();  // 產出可匯入的查詢工具設定檔
   const wrap = document.getElementById('designOutputWrap');
   if (wrap) setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
 }
@@ -2279,27 +2302,15 @@ function runLocalGeneration() {
   window._generatedVueCode = vueCode;
 
   wrap.style.display = 'block';
-  // 有前端 skill 包 → 程式碼分頁顯示依規範產出的 Nuxt 檔案（預覽仍為版面示意）
-  if (window._fePack) {
-    const files = buildNuxtFiles(state, tool);
-    window._nuxtFiles = files;
-    codePre.textContent = files.map(f =>
-      '════════ ' + f.path + ' ════════\n' + f.content).join('\n\n');
-  } else {
-    window._nuxtFiles = null;
-    codePre.textContent = vueCode;
-  }
+  codePre.textContent = vueCode;
   frame.srcdoc = buildVuePreview(vueCode);
   dot.className = 'ai-status-dot done'; dot.style.display = 'inline-block';
-  status.textContent = '生成完成 · ' + (window._fePack ? '依前端 skill 規範（Nuxt UI）' : tpl.name)
+  status.textContent = '生成完成 · ' + tpl.name
     + (tools.length > 1 ? `（${window._activeToolIdx + 1}/${tools.length}：${tool.name}）` : '');
   dlBtn.style.display = 'inline-block';
-  dlBtn.textContent = window._fePack ? '⬇ 下載前端交付包'
-    : (tools.length > 1 ? `⬇ 下載 .vue ZIP（${tools.length} 個）` : '⬇ 下載 .vue');
+  dlBtn.textContent = tools.length > 1 ? `⬇ 下載 .vue ZIP（${tools.length} 個）` : '⬇ 下載 .vue';
   const mock = document.getElementById('mockStrip');
-  if (mock) mock.innerHTML = window._fePack
-    ? '⚠️ 下方預覽為<b>版面/欄位示意</b>（Element Plus 繪製）；實際交付程式碼為 <b>Nuxt UI</b>，依前端 skill 包規範產出，請切「程式碼」分頁查看'
-    : '⚠️ 預覽中的表格資料為<b>示意假資料</b>，僅供確認版面與欄位；實際資料由工程師串接後端後顯示';
+  if (mock) mock.innerHTML = '⚠️ 此預覽僅為<b>版面／欄位示意</b>（假資料）；真正的交付物是下方的<b>查詢工具設定檔</b>，匯入後由後台自己渲染畫面';
   switchDesignTab('preview');
   closeBubble(); updateClearBtn();  // 圈選：切工具時同步狀態（patch 於 iframe ready 後自動重套）
 }
@@ -2362,11 +2373,11 @@ function applyFieldEdits() {
   (window._fieldOverrides = window._fieldOverrides || {})[overrideKey(tool)] = props;
   toggleFieldEditor(false);
   runLocalGeneration();
-  runBackendGeneration();
-  showToast('✏️ 欄位已更新，前後端已重新生成');
+  runConfigGeneration();
+  showToast('✏️ 欄位已更新，預覽與設定檔已重新產生');
 }
 
-// ═══ 第二階段：後端程式生成（依 .agents skill 慣例 / GTW_Admin2Api）═══════════
+// ═══ 規格解析共用：多工具拆分與欄位抽取 ═══════════════════════════════════
 
 // 中文欄名 → 英文字典（組字用）
 const COL_WORD_DICT = [
@@ -2516,583 +2527,6 @@ function extractSpecMeta(state, tool) {
   return { columns: finalColumns, dbFields, db, schema, table, entity, kebab, moduleName, domain, context, props: finalProps, toolTitle };
 }
 
-function buildBackendFiles(m) {
-  const files = [];
-  const ns = 'GTW_Admin2Api';
-  const propLines = t => m.props.map(p =>
-    `        /// <summary>${p.col}</summary>\n        public ${p.type}${p.type === 'string' ? '' : ''} ${p.name} { get; set; }${p.type === 'string' ? '' : ''}`
-  ).join('\n\n');
-
-  // ── 1. Entity ──
-  files.push({ path: `Models/${m.domain}/${m.context}/${m.entity}.cs`, content:
-`using System;
-
-namespace ${ns}.Models.${m.domain}.${m.context}
-{
-    /// <summary>
-    /// 資料來源：${m.db}.${m.schema}.${m.table}
-    /// ⚠️ 正式專案請以 EF Core scaffold 產生後，將本檔內容併入 partial class
-    /// </summary>
-    public partial class ${m.entity}
-    {
-${m.props.map(p => `        /// <summary>${p.col}${p.guessed ? '（⚠️ DB 欄名為推測，請確認）' : `（DB: ${p.dbName}）`}</summary>\n        public ${p.type} ${p.name} { get; set; }`).join('\n\n')}
-
-        /// <summary>總筆數（由 COUNT(1) OVER() 查詢附帶，非資料表欄位）</summary>
-        public int TotalCount { get; set; }
-    }
-}
-` });
-
-  // ── 2. Response DTO ──
-  files.push({ path: `DTOs/${m.domain}/${m.entity}ItemResponse.cs`, content:
-`using System;
-
-namespace ${ns}.DTOs.${m.domain}
-{
-    /// <summary>${m.toolTitle} — 列表項目回傳（禁止直接回傳 Entity）</summary>
-    public class ${m.entity}ItemResponse
-    {
-${m.props.map(p => `        /// <summary>${p.col}</summary>\n        public ${p.type} ${p.name} { get; set; }`).join('\n\n')}
-    }
-}
-` });
-
-  // ── 3. Repository 介面 ──
-  files.push({ path: `Interface/Repository/${m.domain}/${m.context}/GT_I${m.entity}Repository.cs`, content:
-`using System.Collections.Generic;
-using System.Threading.Tasks;
-using ${ns}.Models.${m.domain}.${m.context};
-
-namespace ${ns}.Interface.Repository.${m.domain}.${m.context}
-{
-    public interface GT_I${m.entity}Repository : GT_IRepository<${m.entity}>
-    {
-        /// <summary>查詢列表（分頁 + 白名單排序 + 關鍵字；TotalCount 由查詢附帶）</summary>
-        Task<List<${m.entity}>> GetListAsync(int page, int pageSize, string sort, string searchField, string searchValue);
-    }
-}
-` });
-
-  // ── 4. Repository 實作 ──
-  // SELECT：[DB 欄名] AS [C# 屬性名]（一律加括號，容忍保留字/特殊表名）
-  const colSelect = m.props.map(p => `[${p.dbName}] AS [${p.name}]`).join(', ');
-  const defaultSortProp = (m.props.find(p => p.type === 'DateTime') || m.props[0]);
-  files.push({ path: `Repository/${m.domain}/${m.context}/GT_${m.entity}Repository.cs`, content:
-`using System.Collections.Generic;
-using System.Threading.Tasks;
-using Microsoft.Data.SqlClient;
-using ${ns}.Interface.Repository.${m.domain}.${m.context};
-using ${ns}.Models.${m.domain}.${m.context};
-
-namespace ${ns}.Repository.${m.domain}.${m.context}
-{
-    public class GT_${m.entity}Repository : GT_Repository<${m.entity}>, GT_I${m.entity}Repository
-    {
-        // 白名單：C# 屬性名 → 實際 DB 欄位名（前端傳屬性名，SQL 用 DB 欄名，杜絕 Injection）
-        private static readonly Dictionary<string, string> fieldMap = new()
-        {
-${m.props.map(p => `            ["${p.name}"] = "${p.dbName}",${p.guessed ? ' // ⚠️ DB 欄名為推測，請確認' : ''}`).join('\n')}
-        };
-
-        public GT_${m.entity}Repository(${m.context}Context context) : base(context) { }
-
-        /// <inheritdoc/>
-        public async Task<List<${m.entity}>> GetListAsync(int page, int pageSize, string sort, string searchField, string searchValue)
-        {
-            // 分頁防呆：page < 1 會產生負 OFFSET；pageSize 上限避免全表撈取
-            page = page < 1 ? 1 : page;
-            pageSize = pageSize < 1 ? 20 : (pageSize > 200 ? 200 : pageSize);
-
-            var where = string.Empty;
-            var parameters = new List<SqlParameter>
-            {
-                new("@offset", (page - 1) * pageSize),
-                new("@pageSize", pageSize),
-            };
-
-            if (!string.IsNullOrEmpty(searchField) && fieldMap.TryGetValue(searchField, out var searchColumn))
-            {
-                where = $"WHERE [{searchColumn}] LIKE @searchValue ESCAPE '\\\\'";
-                var escaped = (searchValue ?? string.Empty)
-                    .Replace("\\\\", "\\\\\\\\").Replace("%", "\\\\%").Replace("_", "\\\\_").Replace("[", "\\\\[");
-                parameters.Add(new SqlParameter("@searchValue", $"%{escaped}%"));
-            }
-
-            // 排序：僅接受白名單屬性名（格式 "Name+" ASC / "Name-" DESC），轉為 [DB 欄名]
-            var orderBy = "[${defaultSortProp.dbName}] DESC";
-            if (!string.IsNullOrEmpty(sort))
-            {
-                var desc = sort.EndsWith("-");
-                var field = sort.TrimEnd('+', '-');
-                if (fieldMap.TryGetValue(field, out var sortColumn))
-                {
-                    orderBy = "[" + sortColumn + "]" + (desc ? " DESC" : " ASC");
-                }
-            }
-
-            // TotalCount 以視窗函數附帶回傳，免第二次 COUNT 查詢
-            // 注意：page 超出最後一頁時本查詢回傳空集合，Total 會是 0（前端分頁正常操作不會發生）
-            var sql = $@"
-                SELECT ${colSelect}, COUNT(1) OVER() AS TotalCount
-                FROM [${m.db}].[${m.schema}].[${m.table}] WITH (NOLOCK)
-                {where}
-                ORDER BY {orderBy}
-                OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
-
-            return await ExecuteSqlQueryAsync<${m.entity}>(sql, parameters.ToArray());
-        }
-    }
-}
-` });
-
-  // ── 5. UnitOfWork 介面 ──
-  files.push({ path: `Interface/UnitOfWork/${m.domain}/${m.context}/GT_I${m.context}UnitOfWork.cs`, content:
-`using ${ns}.Interface.Repository.${m.domain}.${m.context};
-
-namespace ${ns}.Interface.UnitOfWork.${m.domain}.${m.context}
-{
-    /// <summary>
-    /// ⚠️ 建立前必做：掃描既有 UnitOfWork（Get-ChildItem -Recurse -Filter "*UnitOfWork.cs" "UnitOfWork/"）
-    /// 若 ${m.db} 已有 UnitOfWork → 只在其中新增 ${m.entity}Repository 屬性，勿重建本檔
-    /// </summary>
-    public interface GT_I${m.context}UnitOfWork : GT_IUnitOfWork
-    {
-        GT_I${m.entity}Repository ${m.entity}Repository { get; }
-    }
-}
-` });
-
-  // ── 6. UnitOfWork 實作 ──
-  files.push({ path: `UnitOfWork/${m.domain}/${m.context}/GT_${m.context}UnitOfWork.cs`, content:
-`using ${ns}.Interface.Repository.${m.domain}.${m.context};
-using ${ns}.Interface.UnitOfWork.${m.domain}.${m.context};
-using ${ns}.Repository.${m.domain}.${m.context};
-
-namespace ${ns}.UnitOfWork.${m.domain}.${m.context}
-{
-    public class GT_${m.context}UnitOfWork : GT_UnitOfWork, GT_I${m.context}UnitOfWork
-    {
-        public GT_I${m.entity}Repository ${m.entity}Repository { get; private set; }
-
-        public GT_${m.context}UnitOfWork(${m.context}Context context, GT_ILoggerHelpers logger)
-            : base(context, logger) { }
-
-        public override void LinkNewRepository()
-        {
-            ${m.entity}Repository = CreateNewRepository<GT_${m.entity}Repository, ${m.context}Context>();
-        }
-    }
-}
-` });
-
-  // ── 7. Controller ──
-  const defaultSort = (m.props.find(p => p.type === 'DateTime') || m.props[0]).name;
-  files.push({ path: `Controllers/${m.domain}/${m.entity}Controller.cs`, content:
-`using System;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using ${ns}.Interface.UnitOfWork.${m.domain}.${m.context};
-
-namespace ${ns}.Controllers.${m.domain}
-{
-    [Route("${m.domain.toLowerCase()}/${m.kebab}")]
-    public class ${m.entity}Controller : GT_AdminControllerBase
-    {
-        private readonly GT_I${m.context}UnitOfWork unitOfWork;
-
-        public ${m.entity}Controller(GT_ICommonHelpers common, GT_I${m.context}UnitOfWork unitOfWork)
-            : base(common)
-        {
-            this.unitOfWork = unitOfWork;
-        }
-
-        /// <summary>${m.toolTitle} — 取得列表</summary>
-        /// <remarks>
-        /// 資料來源：${m.db}..${m.table}
-        ///
-        /// 流程：
-        /// 1. 權限檢查
-        /// 2. 綁定搜尋欄位（白名單驗證）
-        /// 3. 查詢資料（含分頁排序）
-        ///
-        /// Success response:
-        ///
-        ///     {
-        ///         "Code": 0,
-        ///         "Message": "SUCCESS",
-        ///         "Data": { "Page":1, "PageSize":20, "Total":100, "Items":[...] }
-        ///     }
-        ///
-        /// 注意事項：
-        /// - 排序/搜尋白名單（屬性名 → DB 欄名對映於 Repository.fieldMap）：${m.props.map(p => p.name).join(', ')}
-        /// </remarks>
-        [HttpGet("list")]
-        public async Task<GT_HttpResponseObject> GetListAsync([FromQuery] GT_SearchCommonRequest request)
-        {
-            if (!hasError)
-            {
-                CheckPermissionAndNoPermissionProcess("${m.moduleName}.ACTION_BROWSE");
-            }
-
-            if (!hasError)
-            {
-                if (!BindSearchFieldAndErrorProcess(request))
-                {
-                    code = GT_WEBAPI_RETURN_CODE.CONNECTION_TIMEOUT_9102;
-                }
-            }
-
-            if (!hasError)
-            {
-                try
-                {
-                    processMemo = "取得${m.toolTitle}列表";
-
-                    // 排序/搜尋白名單驗證與 DB 欄名轉換皆在 Repository 的 fieldMap 內完成
-                    var items = await unitOfWork.${m.entity}Repository.GetListAsync(
-                        request.Page, request.PageSize, request.Sort, request.SearchField, request.SearchValue);
-
-                    data = new GT_SearchCommonResponse
-                    {
-                        Page = request.Page,
-                        PageSize = request.PageSize,
-                        Total = items.Count > 0 ? items[0].TotalCount : 0,
-                        Items = items.Select(x => new DTOs.${m.domain}.${m.entity}ItemResponse
-                        {
-${m.props.map(p => `                            ${p.name} = x.${p.name},`).join('\n')}
-                        }).ToList(),
-                    };
-                }
-                catch (Exception e)
-                {
-                    code = GT_WEBAPI_RETURN_CODE.CONNECTION_TIMEOUT_9100;
-                    common.Logger.LogError(e, processMemo);
-                }
-            }
-
-            return GetResponseObject();
-        }
-    }
-}
-` });
-
-  // ── 8. 前端串接 api.js ──
-  files.push({ path: `Frontend/api-${m.kebab}.js`, content:
-`// ${m.toolTitle} — 前端 API 串接（對應 ${m.entity}Controller）
-// 回傳協定：GT_HttpResponseObject { Code, Message, Data }（Code 0 = 成功）
-
-const API_BASE = '/${m.domain.toLowerCase()}/${m.kebab}';
-
-async function request(url, options = {}) {
-  const resp = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      // request.js interceptor 會自動附加 Authorization / Gt-Session-Id
-    },
-    ...options,
-  });
-  const body = await resp.json();
-  if (body.Code === 9101) { window.location.href = '/login'; return; } // Session 過期
-  if (body.Code !== 0) { throw new Error(body.Message || ('錯誤碼 ' + body.Code)); }
-  return body.Data;
-}
-
-// 欄位對應（Vue 表格中文欄名 ↔ DTO 屬性名）
-export const FIELD_MAP = {
-${m.props.map(p => `  '${p.col}': '${p.name}',`).join('\n')}
-};
-
-/**
- * 取得列表（分頁 + 排序 + 搜尋）
- * searchField / sort 可傳中文欄名（如 '${m.props[0].col}'）或屬性名（'${m.props[0].name}'），自動轉為後端白名單屬性名
- * @returns {Promise<{Page:number, PageSize:number, Total:number, Items:Array}>}
- */
-export function getList({ page = 1, pageSize = 20, sort = '${defaultSort}-', searchField = '', searchValue = '' } = {}) {
-  const dir = /[+-]$/.test(sort) ? sort.slice(-1) : '-';
-  const sortKey = sort.replace(/[+-]$/, '');
-  const qs = new URLSearchParams({
-    Page: page, PageSize: pageSize,
-    Sort: (FIELD_MAP[sortKey] || sortKey) + dir,
-  });
-  if (searchField) {
-    qs.set('SearchField', FIELD_MAP[searchField] || searchField); // 中文欄名 → 屬性名
-    qs.set('SearchValue', searchValue);
-  }
-  return request(API_BASE + '/list?' + qs.toString());
-}
-
-/**
- * 將 API 回傳的 Items 轉為 Vue 表格用的中文 key 列（含 DateTime timestamp → 字串）
- */
-export function toTableRows(items) {
-  return items.map(item => Object.fromEntries(
-    Object.entries(FIELD_MAP).map(([zh, en]) => {
-      let v = item[en];
-      // 後端 DateTime 以 JS timestamp 傳輸（ToolDateTimeConverter）→ 格式化顯示
-      if (typeof v === 'number' && /時間|日期/.test(zh)) {
-        v = new Date(v).toLocaleString('zh-TW', { hour12: false });
-      }
-      return [zh, v];
-    })));
-}
-` });
-
-  // ── 9. README ──
-  files.push({ path: `README_${m.entity}.md`, content:
-`# ${m.toolTitle} — 後端整合說明
-
-> 由「規格文件標準化工具」第二階段自動生成，遵循 ${window._skillPack ? window._skillPack.name + ' skill 規範' : '.agents skill 慣例（GTW_Admin2Api）'}。
-
-## 📁 產出檔案
-
-| 檔案 | 說明 |
-|------|------|
-${files.map(f => `| \`${f.path}\` | |`).join('\n')}
-| \`Controllers/${m.domain}/${m.entity}Controller.cs\` | 列表 API（權限 + 分頁 + 白名單排序） |
-| \`Frontend/api-${m.kebab}.js\` | 前端串接（對應第一階段 Vue） |
-
-## 🔌 DI 註冊（貼入 Startup.cs）
-
-\`\`\`csharp
-// AddDbContext 已註冊 Context（Scoped），毋須另外 AddScoped<Context>
-services.AddDbContext<${m.context}Context>(
-    options => GT_DbContextOptionsBuilder.UseSqlServer(options, "${m.db}", services)
-);
-services.AddScoped<GT_I${m.context}UnitOfWork, GT_${m.context}UnitOfWork>();
-\`\`\`
-
-## 🗄️ DbContext 註冊（貼入 OnModelCreatingPartial）
-
-查詢結果不對應真實資料表主鍵時，Entity 需以 keyless 註冊：
-
-\`\`\`csharp
-modelBuilder.Entity<${m.entity}>(entity => { entity.HasNoKey(); });
-\`\`\`
-
-## 🔗 與第一階段 Vue 串接
-
-.vue 內建 mock 模式（前端過濾＋前端分頁，僅供預覽）。串接步驟：
-
-1. 引入 \`Frontend/api-${m.kebab}.js\`
-2. 把 \`loadData()\` 內的 mock 區塊換成已註解好的 API 版本（伺服器分頁）：
-
-\`\`\`js
-import { getList, toTableRows } from './api-${m.kebab}';
-
-async function loadData() {
-  const data = await getList({ page: page.value, pageSize: pageSize.value,
-    searchField: keyword.value ? searchField.value : '', searchValue: keyword.value });
-  rows.value = toTableRows(data.Items); // 含 DateTime timestamp → 字串格式化
-  total.value = data.Total;
-}
-\`\`\`
-
-3. 移除 mock 用的 \`filtered\` / \`pagedRows\`，表格 \`:data\` 直接綁 \`rows\`
-4. 搜尋欄位可傳中文欄名，\`getList\` 會經 FIELD_MAP 自動轉為後端白名單屬性名
-
-## ⚙️ 整合前必須確認
-
-- [ ] **掃描既有 UnitOfWork**：\`Get-ChildItem -Recurse -Filter "*UnitOfWork.cs" "UnitOfWork/"\` — 若 ${m.db} 已有，把 Repository 併入，刪除本包的 UnitOfWork 檔
-- [ ] Entity 請以 EF Core scaffold 為準（本包為手寫版）
-- [ ] 權限字串 \`${m.moduleName}.ACTION_BROWSE\` 已建入權限系統
-- [ ] Keyless entity：若查詢不對應真實資料表，在 OnModelCreatingPartial 加 \`HasNoKey()\`
-- [ ] 完成後執行 \`dotnet build && dotnet test\`
-- [ ] 更新 \`api-catalog.md\`（見下方）
-
-## 📇 api-catalog.md 登錄
-
-\`\`\`markdown
-### ${m.toolTitle}
-| 端點 | Method | 權限 | Repository | Log |
-|------|--------|------|-----------|-----|
-| /${m.domain.toLowerCase()}/${m.kebab}/list | GET | ${m.moduleName}.ACTION_BROWSE | GT_${m.entity}Repository | WEB |
-\`\`\`
-` });
-
-  return files;
-}
-
-function runBackendGeneration() {
-  const miss = missingSteps();
-  if (miss.length) { showError('請先完成：' + miss.join('、')); return; }
-  const state = window._lastState;
-
-  // 每個工具（xlsx 顯示分頁）各產一組後端檔案
-  const tools = extractTools(state);
-  const files = [];
-  const seen = new Set();
-  const metas = [];
-  for (const tool of tools) {
-    const meta = extractSpecMeta(state, tool);
-    metas.push(meta);
-    for (const f of buildBackendFiles(meta)) {
-      if (/\/UnitOfWork\//.test('/' + f.path)) continue; // UnitOfWork 於下方依 DB 合併產生
-      if (seen.has(f.path)) continue;
-      seen.add(f.path);
-      f.tool = `📋 ${meta.toolTitle}（${meta.db}.${meta.table}）`;
-      files.push(f);
-    }
-  }
-
-  // 同一 DB（domain/context）的工具共用一個 UnitOfWork，合併所有 Repository
-  const groups = {};
-  for (const m of metas) {
-    const key = m.domain + '/' + m.context;
-    (groups[key] = groups[key] || []).push(m);
-  }
-  for (const group of Object.values(groups)) {
-    const g = group[0];
-    const ns = 'GTW_Admin2Api';
-    const uowTool = `🔗 共用 UnitOfWork（${g.db}，${group.length} 個工具）`;
-    files.push({ tool: uowTool, path: `Interface/UnitOfWork/${g.domain}/${g.context}/GT_I${g.context}UnitOfWork.cs`, content:
-`using ${ns}.Interface.Repository.${g.domain}.${g.context};
-
-namespace ${ns}.Interface.UnitOfWork.${g.domain}.${g.context}
-{
-    /// <summary>
-    /// ⚠️ 建立前必做：掃描既有 UnitOfWork（Get-ChildItem -Recurse -Filter "*UnitOfWork.cs" "UnitOfWork/"）
-    /// 若 ${g.db} 已有 UnitOfWork → 只在其中新增下列 Repository 屬性，勿重建本檔
-    /// </summary>
-    public interface GT_I${g.context}UnitOfWork : GT_IUnitOfWork
-    {
-${group.map(m => `        GT_I${m.entity}Repository ${m.entity}Repository { get; }`).join('\n')}
-    }
-}
-` });
-    files.push({ tool: uowTool, path: `UnitOfWork/${g.domain}/${g.context}/GT_${g.context}UnitOfWork.cs`, content:
-`using ${ns}.Interface.Repository.${g.domain}.${g.context};
-using ${ns}.Interface.UnitOfWork.${g.domain}.${g.context};
-using ${ns}.Repository.${g.domain}.${g.context};
-
-namespace ${ns}.UnitOfWork.${g.domain}.${g.context}
-{
-    public class GT_${g.context}UnitOfWork : GT_UnitOfWork, GT_I${g.context}UnitOfWork
-    {
-${group.map(m => `        public GT_I${m.entity}Repository ${m.entity}Repository { get; private set; }`).join('\n')}
-
-        public GT_${g.context}UnitOfWork(${g.context}Context context, GT_ILoggerHelpers logger)
-            : base(context, logger) { }
-
-        public override void LinkNewRepository()
-        {
-${group.map(m => `            ${m.entity}Repository = CreateNewRepository<GT_${m.entity}Repository, ${g.context}Context>();`).join('\n')}
-        }
-    }
-}
-` });
-  }
-  window._backendFiles = files;
-
-  document.getElementById('stage2Empty').style.display = 'none';
-  document.getElementById('stage2Result').style.display = 'block';
-  document.getElementById('stage2Slot').classList.add('filled');
-  document.getElementById('downloadBackendBtn').style.display = 'inline-block';
-  document.getElementById('packageBtn').style.display = 'inline-block';
-  document.getElementById('deliveryHint').style.display = 'block';
-
-  // 檔案 chip 按工具分組顯示（企劃可一眼看出每個工具的產出）
-  const chipsEl = document.getElementById('stage2Files');
-  const groupOrder = [];
-  const grouped = {};
-  files.forEach((f, i) => {
-    const key = f.tool || '其他';
-    if (!grouped[key]) { grouped[key] = []; groupOrder.push(key); }
-    grouped[key].push({ f, i });
-  });
-  chipsEl.innerHTML = groupOrder.map(key =>
-    `<div class="s2-group">${escapeHtml(key)}</div>` +
-    grouped[key].map(({ f, i }) =>
-      `<span class="s2-file${i === 0 ? ' active' : ''}" onclick="showBackendFile(${i})">${escapeHtml(f.path.split('/').pop())}</span>`).join('')
-  ).join('');
-  showBackendFile(0);
-
-  // 有推測欄名的工具 → 提醒企劃/工程師確認
-  const guessedTools = metas.filter(m => m.props.some(p => p.guessed)).map(m => m.toolTitle);
-  if (guessedTools.length) {
-    showToast('⚠️ ' + guessedTools.join('、') + ' 的 DB 欄名為推測值，請用「✏️ 欄位」確認', true);
-  } else {
-    showToast('⚙ 後端程式生成完成，共 ' + files.length + ' 個檔案');
-  }
-}
-
-function showBackendFile(i) {
-  const files = window._backendFiles || [];
-  if (!files[i]) return;
-  document.querySelectorAll('.s2-file').forEach((c, j) => c.classList.toggle('active', j === i));
-  document.getElementById('stage2Code').textContent = files[i].content;
-}
-
-// 一鍵打包交付：前端 .vue + 後端全部檔案 + 交付說明
-async function downloadDeliveryZip() {
-  const state = window._lastState;
-  if (!state) { showError('請先上傳規格文件'); return; }
-  const backendFiles = window._backendFiles || [];
-  if (!backendFiles.length) { showError('請先生成後端程式'); return; }
-
-  const zip = new JSZip();
-  const tools = window._tools || extractTools(state);
-  const tplKey = window._selectedTemplate || 'admin2';
-  const toolRows = [];
-
-  for (const tool of tools) {
-    const meta = extractSpecMeta(state, tool);
-    const vname = (meta.entity && meta.entity !== 'YourTable') ? meta.entity
-      : tool.name.replace(/[^\w一-龥]+/g, '').slice(0, 40) || 'AdminView';
-    zip.file('frontend/' + vname + '.vue', injectPatchCss(buildLocalVue(tplKey, state, tool), window._patchStore[tplKey + '|' + tools.indexOf(tool)]));
-    toolRows.push(`| ${tool.name} | frontend/${vname}.vue | ${meta.db}.${meta.schema}.${meta.table} | /${meta.domain.toLowerCase()}/${meta.kebab}/list |`);
-  }
-  for (const f of backendFiles) zip.file('backend/' + f.path, f.content);
-
-  zip.file('交付說明.md',
-`# ${state.fileName} — 交付包
-
-> 由「規格文件標準化工具」自動產出（${new Date().toLocaleDateString('zh-TW')}）${window._skillPack ? '，後端遵循 ' + window._skillPack.name + ' skill 規範' : ''}。
-
-## 📦 內容物
-
-| 工具 | 前端元件 | 資料表 | API 路由 |
-|------|---------|--------|---------|
-${toolRows.join('\n')}
-
-- \`frontend/\` — Vue 3 + Element Plus 單檔元件（目前為 mock 假資料模式，串接方式見各 README）
-- \`backend/\` — C# Controller / Repository / UnitOfWork / Entity / DTO 與前端串接用 api-*.js
-
-## 🔧 給工程師
-
-1. 先讀 \`backend/README_*.md\`（每個工具一份）：DI 註冊、UnitOfWork 合併注意事項、Vue 串接步驟
-2. Entity 請以 EF Core scaffold 為準；標 ⚠️ 的 DB 欄名為推測值，請對照實際資料表確認
-3. 權限字串需先建入權限系統
-4. 完成後執行 dotnet build && dotnet test
-
-## 📝 給企劃
-
-- 若欄位有誤，回到工具用「✏️ 欄位」面板修正後重新打包
-- 請連同**原始規格書**一併交付，供工程師核對
-`);
-
-  const base = state.fileName.replace(/\.[^.]+$/, '');
-  const blob = await zip.generateAsync({ type: 'blob' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = base + '_交付包.zip'; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 3000);
-  showToast('📦 交付包已下載（' + tools.length + ' 個工具，前端＋後端＋說明）');
-}
-
-async function downloadBackendZip() {
-  const files = window._backendFiles || [];
-  if (!files.length) return;
-  const zip = new JSZip();
-  for (const f of files) zip.file(f.path, f.content);
-  const state = window._lastState;
-  const base  = state ? state.fileName.replace(/\.[^.]+$/, '') : 'backend';
-  const blob  = await zip.generateAsync({ type: 'blob' });
-  const url   = URL.createObjectURL(blob);
-  const a     = document.createElement('a');
-  a.href = url; a.download = base + '_backend.zip'; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 3000);
-}
 
 // ─── Claude Design generation ────────────────────────────────────────────────
 function switchDesignTab(tab) {
@@ -3113,526 +2547,466 @@ function switchDesignTab(tab) {
   }
 }
 
-// ─── 前端 Skill 包：解析 + 依包內規範產生 Nuxt UI 頁面 ────────────────────────
-window._fePack = null;
+// ═══ 查詢工具設定檔產生器（依 query-tool-config-generator skill 包）═══════════
+window._cfgPack = null;    // 解析後的規範
+window._cfgOut  = null;    // 產出的設定檔 + checklist
 
-// 讀 zip 內的文字檔（回傳 map: 短路徑 → 內容）
-async function readZipTexts(zip, re) {
-  const out = {};
-  const names = Object.keys(zip.files).filter(p => re.test(p) && !zip.files[p].dir);
-  // 統一換行為 \n：包內為 CRLF，否則後續 markdown 片段解析全會失敗
-  for (const p of names) out[p] = (await zip.files[p].async('string')).replace(/\r\n/g, '\n');
-  return out;
+// 從 markdown 表格/程式碼抽白名單；抽不到就用 schema.md 明列的值
+function cfgExtractList(text, re, fallback) {
+  const m = text.match(re);
+  if (!m) return fallback;
+  const items = m[1].split(',').map(s => s.replace(/['"\s]/g, '')).filter(Boolean);
+  return items.length ? items : fallback;
 }
 
-// 從 markdown 抽出「### <key> — <說明>」後的第一個 ```vue 程式碼區塊
-function extractSnippets(md) {
-  const out = {};
-  const re = /^###\s+([A-Za-z0-9-]+)\s+—\s*([^\n]*)\n+```vue\n([\s\S]*?)```/gm;
-  let m;
-  while ((m = re.exec(md)) !== null) {
-    if (!out[m[1]]) out[m[1]] = { title: m[2].trim(), code: m[3].replace(/\s+$/, '') };
-  }
-  return out;
-}
-// 抽出「## <標題>」後的第一個指定語言程式碼區塊
-function extractBlockAfter(md, headingRe, lang) {
-  const h = md.match(headingRe);
-  if (!h) return null;
-  const rest = md.slice(h.index + h[0].length);
-  const m = rest.match(new RegExp('```' + lang + '\\n([\\s\\S]*?)```'));
-  return m ? m[1].replace(/\s+$/, '') : null;
-}
-
-async function loadFeSkillPack(file) {
-  if (!/\.zip$/i.test(file.name)) { showError('前端 Skill 包請使用 .zip 格式'); return; }
+async function loadCfgPack(file) {
+  if (!/\.zip$/i.test(file.name)) { showError('設定檔產生器請使用 .zip 格式'); return; }
   try {
     const zip = await JSZip.loadAsync(await file.arrayBuffer());
-    const skills = [];
-    for (const path of Object.keys(zip.files)) {
-      const sm = path.match(/skills\/([^/]+)\/SKILL\.md$/i);
-      if (sm) skills.push(sm[1]);
-    }
-    if (!skills.length) { showError('此 zip 內找不到任何 SKILL.md'); return; }
-
-    // 找 page-generate（頁面產生規範）
-    const pgKey = Object.keys(zip.files).find(p => /skills\/page-generate\/SKILL\.md$/i.test(p));
-    if (!pgKey) {
-      showError('前端包內找不到 page-generate skill；本工具需要它才能依規範產出頁面');
+    const readTxt = async (re) => {
+      const k = Object.keys(zip.files).find(p => re.test(p) && !zip.files[p].dir);
+      return k ? (await zip.files[k].async('string')).replace(/\r\n/g, '\n') : '';
+    };
+    const skillMd = await readTxt(/query-tool-config-generator\/SKILL\.md$/i);
+    const schema  = await readTxt(/references\/schema\.md$/i);
+    const connMd  = await readTxt(/references\/known-connections-snapshot\.md$/i);
+    const valPs   = await readTxt(/scripts\/Validate-QueryToolImport\.ps1$/i);
+    if (!skillMd || !schema) {
+      showError('此 zip 不是 query-tool-config-generator（缺 SKILL.md 或 references/schema.md）');
       return;
     }
-    const pgSkill = (await zip.files[pgKey].async('string')).replace(/\r\n/g, '\n');
-    const refs = await readZipTexts(zip, /skills\/page-generate\/references\/.+\.md$/i);
-    const pick = (name) => refs[Object.keys(refs).find(k => k.endsWith(name)) || ''] || '';
-    const tplMd  = pick('template-snippets.md');
-    const colMd  = pick('column-templates.md');
-    const setupMd= pick('page-setup.md');
 
-    // 1) 檔案路徑慣例（從 SKILL.md「總覽：頁面結構」清單解析）
-    const paths = {};
-    const pathPatterns = [
-      ['api',       /`(app\/composables\/api\/[^`]+)`/],
-      ['page',      /`(app\/pages\/admin\/[^`]+)`/],
-      ['i18nZh',    /`(i18n\/locales\/zh-TW\.yaml)`/],
-      ['i18nEn',    /`(en-US\.yaml)`/],
-      ['authority', /`(app\/constants\/routeAuthority\.ts)`/],
-      ['modal',     /`(app\/components\/[^`]+Modal\.vue)`/],
-    ];
-    pathPatterns.forEach(([k, re]) => { const m = pgSkill.match(re); if (m) paths[k] = m[1]; });
+    // 1) 連線識別碼快照（```區塊內一行一個）
+    const connBlock = connMd.match(/```\n([\s\S]*?)```/);
+    const connections = connBlock ? connBlock[1].split('\n').map(s => s.trim()).filter(Boolean) : [];
+    const snapDate = (connMd.match(/擷取時間：\*\*([\d-]+)\*\*/) || [])[1] || '未知';
 
-    // 2) script 區塊清單（區塊表格）
-    const regions = [];
-    const regionRe = /^\|\s*\*{0,2}(\d+)\*{0,2}\s*\|\s*\*{0,2}([^|*]+?)\*{0,2}\s*\|\s*([^|]*?)\s*\|$/gm;
-    let rm;
-    while ((rm = regionRe.exec(pgSkill)) !== null) {
-      regions.push({ no: +rm[1], name: rm[2].trim(), optional: /選用/.test(rm[3]) });
-    }
+    // 2) 白名單（優先讀驗證腳本，那是實際把關的來源）
+    const transforms = cfgExtractList(valPs, /\$allowedTransforms\s*=\s*@\(([^)]*)\)/,
+      ['DIRECT','CODE_TABLE','JOIN_LOOKUP','CUSTOM_MAPPING','CUSTOM_SQL']);
+    const operators = cfgExtractList(valPs, /\$allowedOperators\s*=\s*@\(([^)]*)\)/,
+      ['EQ','NE','GT','GE','LT','LE','LIKE','IN','BETWEEN','CUSTOM_SQL','CUSTOM_SQL_CHOICE','CUSTOM_SQL_DATE_RANGE','QUERY_ACCOUNT','QUERY_NICKNAME']);
+    const blRaw = (valPs.match(/\$blacklistRegex\s*=\s*'([^']+)'/) || [])[1]
+      || '\\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|EXEC|EXECUTE|MERGE|GRANT|REVOKE|BACKUP|RESTORE|SHUTDOWN)\\b|xp_|sp_';
+    // SpecialTransform / Alignment 白名單來自 schema.md
+    const special = cfgExtractList(schema, /"SpecialTransform":\s*"([^"]+)"/,
+      ['NONE','VVIP_OR_VIP_NUMBER','VVIP_OR_NUMBER','POKER_CARD','EPOCH_MS_DATE']).map(s => s.replace(/\|/g, ''));
+    // 3) 頂層必填欄位（從 schema 第2節的 JSON 範例取 key 順序）
+    const topBlock = schema.match(/## 2\.[\s\S]*?```json\n([\s\S]*?)```/);
+    const topKeys = topBlock ? (topBlock[1].match(/"(\w+)":/g) || []).map(s => s.replace(/["':]/g, '')) : [];
+    // 4) 三個必須 stringify 的欄位
+    const stringFields = ['ViewDataSetting', 'SearchSetting', 'RelatedTableSetting'];
 
-    // 3) Checklist（作為「已套用規範」清單來源）
-    const checklist = [];
-    const clSec = pgSkill.split(/^##\s+Checklist/m)[1] || '';
-    (clSec.match(/^- \[ \] .+$/gm) || []).forEach(l => checklist.push(l.replace(/^- \[ \] /, '').trim()));
-
-    // 4) 篩選欄位片段（直接沿用包內程式碼）
-    const snippets = extractSnippets(tplMd);
-    // 5) 表格骨架 / BaseTable 變體
-    const skeleton = extractBlockAfter(tplMd, /^##\s+骨架結構\s*$/m, 'vue');
-    const tableSimple = extractBlockAfter(tplMd.split(/^###\s+變體 B/m)[1] || '', /^/, 'vue');
-    // 6) column 格式模板（## N. 名稱）
-    const colFormats = (colMd.match(/^##\s+\d+\.\s+.+$/gm) || []).map(s => s.replace(/^##\s+/, ''));
-    // 7) i18n 保留字元規則
-    const i18nEscape = /保留字元/.test(setupMd || pgSkill);
-    // 8) Nuxt UI 可用元件
-    const uiComponents = Object.keys(zip.files)
-      .map(p => (p.match(/skills\/nuxt-ui\/components\/([^/]+)\.md$/i) || [])[1])
-      .filter(Boolean);
-    // 9) show-column-selector 門檻（從 checklist 文字取數字）
-    const scsRule = checklist.find(c => /show-column-selector/.test(c)) || '';
-    const scsThreshold = (scsRule.match(/≤\s*(\d+)/) || [])[1];
-    // 10) 操作欄寬度對照（1 顆 80／2 顆 112／3 顆 128）
-    const actRule = checklist.find(c => /min-w-\*/.test(c) && /顆/.test(c)) || '';
-
-    window._fePack = {
-      name: file.name, skills, paths, regions, checklist, snippets, skeleton, tableSimple,
-      colFormats, uiComponents, i18nEscape,
-      scsThreshold: scsThreshold ? +scsThreshold : 5,
-      actWidths: { 1: 80, 2: 112, 3: 128 },
-      hasActRule: !!actRule,
+    window._cfgPack = {
+      name: file.name, connections, snapDate, transforms, operators,
+      blacklist: new RegExp(blRaw, 'i'), special, topKeys, stringFields,
+      hasValidator: !!valPs,
     };
 
-    document.getElementById('feSkillEmpty').style.display = 'none';
-    document.getElementById('feSkillLoaded').style.display = 'block';
-    document.getElementById('feSkillPackName').textContent =
-      file.name + '（' + skills.length + ' 個 skill）';
-    document.getElementById('feSkillChips').innerHTML =
-      skills.map(s => `<span class="skill-chip">${s === 'page-generate' ? '⭐' : '🧩'} ${escapeHtml(s)}</span>`).join('');
-    renderFeRules();
+    document.getElementById('skillEmpty').style.display = 'none';
+    document.getElementById('skillLoaded').style.display = 'block';
+    document.getElementById('skillPackName').textContent = file.name;
+    document.getElementById('skillChips').innerHTML =
+      ['⭐ query-tool-config-generator', '📄 schema.md', '🔌 連線快照 ' + connections.length + ' 組',
+       valPs ? '✔ 驗證規則' : ''].filter(Boolean)
+        .map(s => `<span class="skill-chip">${escapeHtml(s)}</span>`).join('');
+    document.getElementById('feRules').innerHTML =
+      '<div class="fr-head">📖 已從包內讀取並將套用的規範</div><ul>' +
+      `<li>Transform 白名單 <b>${transforms.length}</b> 種：${transforms.map(escapeHtml).join(' / ')}</li>` +
+      `<li>Operator 白名單 <b>${operators.length}</b> 種（<code>IS_NULL</code>／<code>HISTORY_SELECT</code> 依規範不產生）</li>` +
+      `<li>連線識別碼快照 <b>${connections.length}</b> 組（擷取於 ${escapeHtml(snapDate)}，比對不到會標 <code>TODO_</code>）</li>` +
+      `<li>CustomSql 黑名單（分號／DML／DDL／<code>xp_</code>／<code>sp_</code>）、Field 全域唯一、ExportRequiredField 一致性</li>` +
+      `<li><b>ViewDataSetting／SearchSetting／RelatedTableSetting 會序列化成字串</b>（schema 明列最易錯的一步）</li>` +
+      '</ul>';
 
-    showToast('🎨 前端 Skill 包已載入：前端改依 page-generate 規範產出');
+    showToast('⚙️ 設定檔產生器已載入（連線快照 ' + connections.length + ' 組）');
     if (!missingSteps().length) autoGenerateIfReady();
   } catch (err) {
-    showError('前端 Skill 包解析失敗：' + err.message);
+    showError('設定檔產生器解析失敗：' + err.message);
   }
 }
 
-function renderFeRules() {
-  const p = window._fePack; const el = document.getElementById('feRules');
-  if (!p || !el) return;
-  const snipKeys = Object.keys(p.snippets);
-  el.innerHTML =
-    '<div class="fr-head">📖 已從包內讀取並將套用的規範</div><ul>' +
-    `<li>輸出路徑慣例：<b>${escapeHtml(p.paths.page || 'app/pages/admin/…')}</b>、<b>${escapeHtml(p.paths.api || 'app/composables/api/…')}</b></li>` +
-    `<li><b>${p.regions.length}</b> 個 <code>#region</code> 區塊架構（選用區塊視欄位自動取捨）</li>` +
-    `<li>篩選欄位片段 <b>${snipKeys.length}</b> 種：${snipKeys.map(escapeHtml).join('、') || '—'}（直接沿用包內程式碼）</li>` +
-    `<li>表格欄位格式模板 <b>${p.colFormats.length}</b> 種、Nuxt UI 元件 <b>${p.uiComponents.length}</b> 個</li>` +
-    `<li>Checklist <b>${p.checklist.length}</b> 條；已自動套用：<code>show-column-selector</code> 門檻 ≤${p.scsThreshold}、i18n 保留字元轉義${p.hasActRule ? '、操作欄寬度對照' : ''}</li>` +
-    '</ul>';
-}
-
-function removeFeSkillPack(e) {
+function removeSkillPack(e) {
   if (e) e.stopPropagation();
-  window._fePack = null;
-  const inp = document.getElementById('feSkillInput'); if (inp) inp.value = '';
-  document.getElementById('feSkillEmpty').style.display = 'flex';
-  document.getElementById('feSkillLoaded').style.display = 'none';
-  showToast('已移除前端 Skill 包，前端恢復為 Element Plus 預覽版');
-  if (!missingSteps().length) autoGenerateIfReady();
+  window._cfgPack = null; window._cfgOut = null;
+  const inp = document.getElementById('skillInput'); if (inp) inp.value = '';
+  document.getElementById('skillEmpty').style.display = 'flex';
+  document.getElementById('skillLoaded').style.display = 'none';
+  document.getElementById('cfgSection').style.display = 'none';
+  showToast('已移除設定檔產生器');
 }
 
-// ─── 依 page-generate 規範產生 Nuxt UI 檔案 ────────────────────────────────
-function feNaming(state, tool) {
-  const m = extractSpecMeta(state, tool);
-  const entity = (m.entity && m.entity !== 'YourTable') ? m.entity : 'AdminList';
-  const kebab = m.kebab || entity.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
-  const section = (m.domain || 'admin').toLowerCase();
-  const snake = kebab.replace(/-/g, '_');
-  return { meta: m, entity, kebab, section, snake, UPPER: (m.moduleName || snake.toUpperCase()) };
-}
-// vue-i18n 保留字元轉義（規範：@ | { } → {'x'}，整個值加雙引號）
-function i18nSafe(s) {
-  const t = String(s == null ? '' : s);
-  const esc = t.replace(/[@|{}]/g, c => `{'${c}'}`);
-  return /[@|{}]/.test(t) ? `"${esc}"` : esc;
-}
-// 依欄位推斷篩選 UI 類型（對應包內 snippet key）
-function feFilterKind(p) {
-  const c = (p.col || '') + ' ' + (p.dbName || '');
-  if (/時間|日期|Time|Date/i.test(c)) return 'date-range';
-  if (/類型|狀態|種類|幣別|平台|館|Type|Status|Kind|Currency/i.test(c)) return 'single-select';
-  if (/數量|金額|次數|等級|Amount|Count|Level|Qty|No$/i.test(c)) return 'input-number';
-  return 'input';
-}
-function fePascal(s) {
-  return String(s || '').split(/[_\s-]+/).filter(Boolean)
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('') || 'Field';
-}
+// ── 連線識別碼比對（語意比對，非字面相等）──
+function matchConnection(dbName, hintText) {
+  const pack = window._cfgPack;
+  if (!pack || !pack.connections.length) return { value: null, candidates: [] };
+  const norm = s => String(s || '').toLowerCase().replace(/[_\-\s]/g, '');
+  const target = norm(dbName);
+  if (!target) return { value: null, candidates: [] };
+  // 同時切底線與駝峰：SlamConfig → slam / config；GameTower3_Log → gametower3 / log
+  const words = s => String(s || '').replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .split(/[^A-Za-z0-9]+/).filter(Boolean).map(w => w.toLowerCase());
+  const parts = words(dbName).filter(p => p.length > 1);
 
-function buildNuxtFiles(state, tool) {
-  const pack = window._fePack;
-  const n = feNaming(state, tool);
-  const props = (n.meta.props || []).filter(p => p && p.col);
-  const P = n.entity;                       // PascalCase 名稱
-  const camelP = P.charAt(0).toLowerCase() + P.slice(1);   // camelCase（變數命名用）
-  const zhTitle = (tool && tool.name) || n.entity;
-
-  // 篩選欄位：日期範圍最多一組，其餘取前 3 個
-  const dateProp = props.find(p => feFilterKind(p) === 'date-range');
-  const others = props.filter(p => p !== dateProp && feFilterKind(p) !== 'date-range').slice(0, 3);
-  const hasDate = !!dateProp;
-  const hasSelect = others.some(p => feFilterKind(p) === 'single-select');
-
-  // ── 1. API composable ──
-  const paramLines = [];
-  if (hasDate) { paramLines.push('  StartDatetime: number', '  EndDatetime: number'); }
-  others.forEach(p => {
-    const k = feFilterKind(p), nm = fePascal(p.dbName || p.col);
-    paramLines.push('  ' + nm + '?: ' + (k === 'input-number' ? 'number' : 'string'));
-  });
-  const itemLines = props.map(p => '  ' + fePascal(p.dbName || p.col) + ': string | number  // ' + p.col);
-
-  const api = [
-    '// ' + (pack.paths.api || 'app/composables/api/<domain>.ts').replace('<domain>', n.section),
-    hasDate ? "import { subtractOneSecondFromTimestamp } from '~/utils/date'\n" : '',
-    '// #region ' + zhTitle,
-    'export type Get' + P + 'Params = {',
-    '  PageSize: number',
-    '  Page: number',
-    '  Sort?: string',
-    ...paramLines,
-    '}',
-    '',
-    'export type ' + P + 'Item = {',
-    ...itemLines,
-    '}',
-    '',
-    'type Get' + P + 'Response = {',
-    '  Items: ' + P + 'Item[]',
-    '  Page: number',
-    '  PageSize: number',
-    '  Total: number',
-    '}',
-    '',
-    'export const USE_GET_' + n.UPPER + " = 'USE_GET_" + n.UPPER + "'",
-    '',
-    'export function useGet' + P + '(params: MaybeRefOrGetter<Get' + P + 'Params>) {',
-    '  const paramsRef = toRef(params)',
-    '',
-    '  return useAsyncData(',
-    '    () => `${USE_GET_' + n.UPPER + '}-${safeStringify(paramsRef.value)}`,',
-    "    () => useProjectAuthApi<Get" + P + "Response>('/" + n.section + '/' + n.kebab + "', {",
-    "      method: 'GET',",
-    '      query: paramsRef.value' + (hasDate ? '' : ','),
-    ...(hasDate ? [
-      '        ? {',
-      '            ...paramsRef.value,',
-      '            EndDatetime: subtractOneSecondFromTimestamp(paramsRef.value.EndDatetime),',
-      '          }',
-      '        : undefined,',
-    ] : []),
-    '    }),',
-    '    useAsyncDataOptions({',
-    '      immediate: false,',
-    '      transform: (data) => {',
-    '        return { ...data?.Data, DataTime: data?.DataTime }',
-    '      },',
-    '    }),',
-    '  )',
-    '}',
-    '// #endregion',
-    '',
-  ].filter(l => l !== '').join('\n');
-
-  // ── 2. 頁面 SFC ──
-  const i18nBase = 'page.' + n.section + '.' + n.snake;
-  const defaults = [];
-  if (hasDate) {
-    defaults.push('  StartDatetime: startOfDay(new Date()).getTime(),');
-    defaults.push('  EndDatetime: startOfDay(addDays(new Date(), 1)).getTime(),');
-  }
-  others.forEach(p => {
-    const k = feFilterKind(p), nm = fePascal(p.dbName || p.col);
-    defaults.push('  ' + nm + ': ' + (k === 'input-number' ? 'undefined' : "''") + ',');
-  });
-  const schemaLines = [];
-  if (hasDate) { schemaLines.push('  StartDatetime: v.number(),', '  EndDatetime: v.number(),'); }
-  others.forEach(p => {
-    const k = feFilterKind(p), nm = fePascal(p.dbName || p.col);
-    schemaLines.push('  ' + nm + ': ' + (k === 'input-number' ? 'v.optional(v.number())' : 'v.optional(v.string())') + ',');
-  });
-
-  // columns：日期→formatTimestampWithTZ、金額/數量→BaseTableTdContent、其餘純值
-  let usesDateFmt = false, usesTdContent = false;
-  const colDefs = props.map(p => {
-    const f = fePascal(p.dbName || p.col);
-    const key = i18nBase + '.' + (p.dbName || f).toLowerCase();
-    const both = (p.col || '') + (p.dbName || '');
-    const isDate = /時間|日期|Time|Date/i.test(both);
-    // 幣別/Currency 是代碼字串，不套數值格式元件
-    const isCode = /幣別|币别|Currency|類型|狀態|Type|Status/i.test(both);
-    const isNum  = !isCode && /金額|數量|次數|得分|押注|贏分|Amount|Count|Money|Win|Bet|Value|Total|Odds/i.test(both);
-    if (isDate) usesDateFmt = true;
-    if (isNum) usesTdContent = true;
-    const cell = isDate
-      ? "    cell: ({ row }) => formatTimestampWithTZ(row.original." + f + ", Number(timeZone.value)),"
-      : isNum
-        ? "    cell: ({ row }) => h(BaseTableTdContent, { content: row.original." + f + " }),"
-        : null;
-    return [
-      '  {',
-      "    accessorKey: '" + f + "',",
-      "    header: t('" + key + "'),",
-      ...(cell ? [cell] : []),
-      "    meta: { class: { th: 'min-w-30' } },",
-      '  },',
-    ].join('\n');
-  }).join('\n');
-
-  // 篩選 template：直接沿用包內 snippet，只替換占位符
-  const fillSnippet = (kind, p) => {
-    const s = pack.snippets[kind];
-    const nm = fePascal(p.dbName || p.col);
-    const key = i18nBase + '.' + (p.dbName || nm).toLowerCase();
-    if (!s) return '';
-    return s.code
-      .replace(/<i18n key>/g, key)
-      .replace(/<fieldName>/g, nm)
-      .replace(/<optionData>/g, nm.charAt(0).toLowerCase() + nm.slice(1) + 'Options')
-      .split('\n').map(l => l ? '          ' + l : l).join('\n');
-  };
-  const filterBlocks = [];
-  if (hasDate) filterBlocks.push(fillSnippet('date-range', dateProp));
-  others.forEach(p => filterBlocks.push(fillSnippet(feFilterKind(p), p)));
-
-  const colCount = props.length;
-  const showColSelector = colCount <= pack.scsThreshold ? '\n        :show-column-selector="false"' : '';
-
-  // 只 import 實際用到的，避免 lint no-unused-vars
-  const needTz = usesDateFmt || hasDate;
-  const imports = [
-    hasDate ? "import type { CalendarDateTime } from '@internationalized/date'" : '',
-    "import type { FormSubmitEvent, TableColumn } from '@nuxt/ui'",
-    "import type { Get" + P + "Params, " + P + "Item } from '~/composables/api/" + n.section + "'",
-    hasDate ? "import { addDays, startOfDay } from 'date-fns'" : '',
-    "import * as v from 'valibot'",
-    "import { useGet" + P + " } from '~/composables/api/" + n.section + "'",
-    needTz ? "import { useTimeZone } from '~/composables/useTimeZone'" : '',
-    hasDate ? "import { calendarDateTimeToTimestamp, localTimestampToTimestampWithTZ, timestampToCalendarDateTime } from '~/utils/date'" : '',
-    "import { replace } from '~/utils/defuExtend'",
-    usesDateFmt ? "import { formatTimestampWithTZ } from '~/utils/format'" : '',
-    "import { decodeQueryParams, encodeQueryParams } from '~/utils/routeQuery'",
-  ].filter(Boolean).join('\n');
-
-  const page = `<!-- ${(pack.paths.page || 'app/pages/admin/<section>/<page>.vue').replace('<section>', n.section).replace('<page>', n.kebab)} -->
-<script setup lang="ts">
-${imports}
-
-const { t } = useI18n()
-const route = useRoute()
-const router = useRouter()
-
-const isFilterOpen = ref(false)
-${usesTdContent ? "const BaseTableTdContent = resolveComponent('BaseTableTdContent')\n" : ''}${needTz ? '\nconst { timeZone } = useTimeZone()\n' : ''}
-// #region 頁面載入時一次性解碼 route.query.q
-const initialQuery = decodeQueryParams<Get${P}Params>(route.query.q)
-// #endregion
-
-// #region 搜尋預設值常數
-const searchDefaultValue = ref<Get${P}Params>({
-  PageSize: 100,
-  Page: 1,
-${defaults.join('\n')}
-})
-// #endregion
-
-// #region 搜尋欄位 型別驗證
-const schema = v.object({
-${schemaLines.join('\n')}
-  Sort: v.optional(v.string()),
-  Page: v.number(),
-  PageSize: v.number(),
-})
-
-type Schema = v.InferOutput<typeof schema>
-// #endregion
-
-// #region 搜尋欄位 資料(含初始化設置)
-const state = ref<Schema>(replace({ ...initialQuery }, searchDefaultValue.value))
-// #endregion
-${hasDate ? `
-// #region 日期範圍處理（用於 BaseDateRangePicker）
-const dateRange = computed({
-  get: () => ({
-    start: timestampToCalendarDateTime(state.value.StartDatetime),
-    end: timestampToCalendarDateTime(state.value.EndDatetime),
-  }),
-  set: (newValue: { start?: CalendarDateTime, end?: CalendarDateTime }) => {
-    if (newValue.start && newValue.end) {
-      state.value.StartDatetime = calendarDateTimeToTimestamp(newValue.start)
-      state.value.EndDatetime = calendarDateTimeToTimestamp(newValue.end)
+  const scored = pack.connections.map(c => {
+    const n = norm(c);
+    let score = 0;
+    if (n === target) score = 100;                       // 完全相符
+    else if (n.includes(target) || target.includes(n)) score = 60;
+    else {
+      const hit = parts.filter(p => n.includes(p)).length;
+      if (hit) score = hit * 15;
     }
-  },
-})
-// #endregion
-` : ''}
-// #region API 參數快照
-function buildApiParams(): Get${P}Params {
-  return {
-    ...state.value,${hasDate ? `
-    StartDatetime: localTimestampToTimestampWithTZ(state.value.StartDatetime, timeZone.value),
-    EndDatetime: localTimestampToTimestampWithTZ(state.value.EndDatetime, timeZone.value),` : ''}
+    if (hintText && score > 0) {
+      const extra = (String(c).match(/[A-Z][a-z0-9]*/g) || [])
+        .filter(w => w.length > 2 && new RegExp(w, 'i').test(hintText));
+      score += extra.length * 3;
+    }
+    return { c, score };
+  }).filter(x => x.score > 0).sort((a, b) => b.score - a.score);
+
+  if (!scored.length) return { value: null, candidates: [] };
+  // 只有「正規化後完全相符且唯一」才自動採用。模糊分數高低不等於有把握——
+  // 規範明講挑不出唯一候選就列清單交人決定，猜錯連線=接到錯的資料庫，代價太高。
+  const exact = scored.filter(x => x.score === 100);
+  if (exact.length === 1) return { value: exact[0].c, candidates: [] };
+  return { value: null, candidates: scored.slice(0, 5).map(x => x.c) };
+}
+
+// ── 依欄位推斷 Operator / 是否適合當搜尋條件 ──
+function cfgOperatorFor(p) {
+  const s = (p.col || '') + (p.dbName || '');
+  if (cfgIsDate(p)) return 'BETWEEN';
+  if (/帳號|Account/i.test(s)) return 'LIKE';
+  if (/暱稱|Nick/i.test(s)) return 'LIKE';
+  if (/類型|狀態|種類|幣別|平台|館|Type|Status|Kind|Currency|Api/i.test(s)) return 'EQ';
+  if (/名稱|Name|說明|備註|文案|Desc|Remark/i.test(s)) return 'LIKE';
+  return 'EQ';
+}
+function cfgSpecialFor(p) {
+  const s = (p.col || '') + (p.dbName || '');
+  if (/毫秒|epoch|timestamp/i.test(s)) return 'EPOCH_MS_DATE';
+  return 'NONE';
+}
+// 切成單字再比對，避免 account_id 裡的「count」被誤判成數量欄位
+function cfgTokens(s) {
+  return String(s || '').replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .split(/[^A-Za-z0-9]+/).filter(Boolean).map(t => t.toLowerCase());
+}
+const CFG_NUM_TOKENS = ['amount','count','money','win','bet','value','total','odds','max','min','qty','num','score','sum','balance','price','rate','fee','point'];
+function cfgIsNumeric(p) {
+  const zh = p.col || '';
+  if (/金額|數量|次數|得分|押注|贏分|上限|下限|倍率|點數|餘額/.test(zh)) return true;
+  const tk = cfgTokens(p.dbName || p.col);
+  if (!tk.length) return false;
+  // 識別碼（結尾 id / no / code / key）不是數量，不加千分位
+  if (['id','no','code','key','index','seq'].indexOf(tk[tk.length - 1]) >= 0) return false;
+  return tk.some(t => CFG_NUM_TOKENS.indexOf(t) >= 0);
+}
+function cfgIsDate(p) {
+  if (/時間|日期/.test(p.col || '')) return true;
+  return cfgTokens(p.dbName || p.col).some(t => ['time','date','datetime','timestamp'].indexOf(t) >= 0);
+}
+function cfgAlignFor(p) {
+  if (cfgIsNumeric(p)) return 'RIGHT';
+  if (cfgIsDate(p)) return 'CENTER';
+  return 'LEFT';
+}
+
+// ── 組裝設定檔 ──
+function buildQueryToolConfig(state, tool) {
+  const pack = window._cfgPack;
+  const meta = extractSpecMeta(state, tool);
+  const text = (tool && tool.flatText) || state.flatText || '';
+  const props = (meta.props || []).filter(p => p && p.col);
+  const todos = [];      // 待確認清單
+  const rows  = [];      // 對照表
+
+  const toolName = (tool && tool.name) || meta.entity || '未命名查詢工具';
+
+  // 1) 連線識別碼
+  const hasTable = meta.table && meta.table !== 'YourTable';
+  const conn = matchConnection(meta.db, text);
+  let mainConnection;
+  if (conn.value) {
+    mainConnection = conn.value;
+    rows.push([`資料來源「${meta.db}」`, `MainConnection=<code>${escapeHtml(conn.value)}</code>`, 'ok', '快照比對成功']);
+  } else if (conn.candidates.length) {
+    mainConnection = 'TODO_連線待確認';
+    todos.push(`<b>MainConnection</b>：規格書寫「${escapeHtml(meta.db)}」，快照有多個相近候選 <code>${conn.candidates.map(escapeHtml).join('</code>／<code>')}</code>，請工程師確認要用哪一個`);
+    rows.push([`資料來源「${escapeHtml(meta.db)}」`, 'MainConnection=<code>TODO_連線待確認</code>', 'warn', '候選：' + conn.candidates.map(escapeHtml).join('、')]);
+  } else {
+    mainConnection = 'TODO_未指定資料來源';
+    todos.push(`<b>MainConnection</b>：規格書未寫出可辨識的資料庫/連線，或不在 ${pack.snapDate} 的快照內，需工程師確認實際連線識別碼`);
+    rows.push(['資料來源', 'MainConnection=<code>TODO_未指定資料來源</code>', 'warn', '快照查無對應']);
   }
-}
 
-const apiParams = ref(buildApiParams())
-// #endregion
+  // 2) 主資料表
+  const mainTable = hasTable ? meta.table : 'TODO_未指定資料表';
+  if (hasTable) rows.push([`資料表 <code>${escapeHtml(meta.table)}</code>`, 'MainTable', 'ok', '規格書有三段式表名']);
+  else { todos.push('<b>MainTable</b>：規格書沒有寫出資料表名稱，需補'); rows.push(['資料表', 'MainTable=<code>TODO_未指定資料表</code>', 'warn', '規格書未寫']); }
 
-// #region 表格所需 api 資料
-const { data: ${camelP}Data, refresh: refresh${P}Data, pending: ${camelP}Pending } = useGet${P}(apiParams)
-// #endregion
+  // 3) 權限字串
+  const authority = 'TODO_瀏覽權限字串';
+  todos.push('<b>BrowseAuthority</b>：瀏覽權限字串需由工程師/主管指定（請勿自行發明權碼）');
+  rows.push(['瀏覽權限', 'BrowseAuthority=<code>TODO_瀏覽權限字串</code>', 'warn', '需依既有權碼體系指定']);
 
-// #region 提交狀態（更新 apiParams 快照 + 同步路由）
-function commitState() {
-  apiParams.value = buildApiParams()
-  router.push({ query: { q: encodeQueryParams(state.value) } })
-}
-// #endregion
+  // 4) 選單位置
+  const menuNo = 0;
+  todos.push('<b>MenuNo</b>：選單節點編號填 <code>0</code>，需工程師對照 <code>SYSTEM_ToolMenu</code> 換成真實編號（或改用 wizard 格式連選單一起新建）');
 
-// #region API 觸發
-watchImmediate(apiParams, () => refresh${P}Data())
-// #endregion
-
-// #region 搜尋事件
-function handleSubmit(_event: FormSubmitEvent<Schema>) {
-  isFilterOpen.value = false
-  state.value.Page = 1
-  commitState()
-}
-// #endregion
-
-// #region 重置搜尋框 事件
-function handleReset() {
-  isFilterOpen.value = false
-  state.value = {
-    ...searchDefaultValue.value,
-    PageSize: state.value.PageSize,
+  // 5) 顯示欄位
+  const used = new Set();
+  const viewData = props.map(p => {
+    let field = p.dbName || fePascalSafe(p.col);
+    while (used.has(field)) field = field + '_2';   // Field 全域唯一（schema 第3節規則1）
+    used.add(field);
+    const spec = {
+      Field: field,
+      Title: p.col,
+      Transform: 'DIRECT',
+      ThousandSeparator: cfgIsNumeric(p),
+      SpecialTransform: cfgSpecialFor(p),
+      Alignment: cfgAlignFor(p),
+      Sortable: true,
+    };
+    rows.push([`顯示「${escapeHtml(p.col)}」`,
+      `DisplayColumnSpec Field=<code>${escapeHtml(field)}</code>, Transform=DIRECT`,
+      'ok', cfgIsNumeric(p) ? '數值：千分位＋靠右' : '']);
+    return spec;
+  });
+  if (!viewData.length) {
+    todos.push('<b>ViewDataSetting</b>：規格書沒抓到任何欄位定義，設定檔的顯示欄位為空，必須手動補');
+    rows.push(['顯示欄位', 'ViewDataSetting=<code>[]</code>', 'warn', '規格書無欄位定義表']);
   }
-  commitState()
+
+  // 6) 搜尋條件：日期優先，其餘取前 3 個可搜尋欄位
+  const dateP = props.find(p => cfgOperatorFor(p) === 'BETWEEN');
+  const others = props.filter(p => p !== dateP && cfgOperatorFor(p) !== 'BETWEEN').slice(0, 3);
+  const searchProps = (dateP ? [dateP] : []).concat(others);
+  const search = searchProps.map(p => {
+    const op = cfgOperatorFor(p);
+    rows.push([`搜尋「${escapeHtml(p.col)}」`, `Operator=<code>${op}</code>`, 'ok',
+      op === 'BETWEEN' ? '區間（值以 ~ 分隔）' : op === 'LIKE' ? '模糊比對' : '精確比對']);
+    return { Type: 'CONDITION', Field: p.dbName || fePascalSafe(p.col), Label: p.col, Operator: op, Logic: 'AND' };
+  });
+  if (!search.length) {
+    todos.push('<b>SearchSetting</b>：沒有推斷出搜尋條件，使用者將無法篩選，建議至少加一個日期區間');
+    rows.push(['搜尋條件', 'SearchSetting=<code>[]</code>', 'warn', '無可推斷欄位']);
+  }
+
+  // 7) 匯出：有日期區間才開，並指定為必填搜尋欄位（規範：避免無條件匯出全表）
+  const exportFlag = !!dateP;
+  const exportField = dateP ? (dateP.dbName || fePascalSafe(dateP.col)) : '';
+  rows.push(['匯出 Excel', exportFlag ? `ExportFlag=true, ExportRequiredField=<code>${escapeHtml(exportField)}</code>` : 'ExportFlag=false',
+    'ok', exportFlag ? '綁日期區間，避免整表匯出（區間上限31天）' : '無日期區間，依規範不開匯出']);
+
+  // 8) 組頂層物件（三個 Setting 必須是「字串」）
+  const item = {
+    IndexNo: null,
+    ToolName: toolName,
+    MenuNo: menuNo,
+    MainConnection: mainConnection,
+    MainTable: mainTable,
+    BrowseAuthority: authority,
+    ViewDataSetting: JSON.stringify(viewData),
+    SearchSetting: JSON.stringify(search),
+    RelatedTableSetting: '[]',
+    ExportFlag: exportFlag,
+    ExportRequiredField: exportField,
+    InvalidFlag: false,
+  };
+  return { item, rows, todos, viewData, search };
 }
-// #endregion
-
-// #region 分頁事件
-function handlePageChange(page: number) {
-  state.value.Page = page
-  commitState()
+function fePascalSafe(s) {
+  const v = String(s || '').replace(/[^\w]/g, '');
+  return /^[A-Za-z_]/.test(v) ? v : ('F_' + v || 'Field');
 }
-function handlePageSizeChange(pageSize: number) {
-  state.value.PageSize = pageSize
-  state.value.Page = 1
-  commitState()
+
+// ── 本機驗證（對應 Validate-QueryToolImport.ps1 的格式檢查，完全不連 DB）──
+function validateConfig(items) {
+  const pack = window._cfgPack;
+  const errors = [], warns = [];
+  items.forEach((it, i) => {
+    const L = items.length > 1 ? `[第${i + 1}筆] ` : '';
+    ['ToolName', 'MainConnection', 'MainTable', 'BrowseAuthority'].forEach(k => {
+      if (!it[k] || !String(it[k]).trim()) errors.push(`${L}${k} 不可空白`);
+      else if (/^TODO_/.test(it[k])) warns.push(`${L}${k} 仍是待確認佔位字 ${it[k]}`);
+    });
+    if (!(it.MenuNo > 0)) warns.push(`${L}MenuNo=${it.MenuNo}，匯入前需換成 SYSTEM_ToolMenu 的真實編號`);
+    let view = [], search = [];
+    try { view = JSON.parse(it.ViewDataSetting || '[]'); } catch (e) { errors.push(`${L}ViewDataSetting 不是合法 JSON 字串`); }
+    try { search = JSON.parse(it.SearchSetting || '[]'); } catch (e) { errors.push(`${L}SearchSetting 不是合法 JSON 字串`); }
+    if (typeof it.ViewDataSetting !== 'string') errors.push(`${L}ViewDataSetting 必須是字串（stringified JSON）`);
+    if (typeof it.SearchSetting !== 'string') errors.push(`${L}SearchSetting 必須是字串`);
+    if (it.RelatedTableSetting != null && typeof it.RelatedTableSetting !== 'string') errors.push(`${L}RelatedTableSetting 必須是字串或 null`);
+    // Field 全域唯一 + Transform 白名單
+    const seen = new Set();
+    view.forEach(c => {
+      if (seen.has(c.Field)) errors.push(`${L}顯示欄位「${c.Field}」重複（Field 必須全域唯一）`);
+      seen.add(c.Field);
+      const t = (c.Transform || 'DIRECT').toUpperCase();
+      if (pack.transforms.indexOf(t) < 0) errors.push(`${L}顯示欄位「${c.Field}」Transform=${t} 不在白名單`);
+      if (t === 'CUSTOM_SQL' && !c.CustomSql) errors.push(`${L}顯示欄位「${c.Field}」CUSTOM_SQL 缺 CustomSql`);
+      if (c.CustomSql && pack.blacklist.test(c.CustomSql)) errors.push(`${L}顯示欄位「${c.Field}」CustomSql 觸犯黑名單`);
+      if (c.CustomSql && c.CustomSql.indexOf(';') >= 0) errors.push(`${L}顯示欄位「${c.Field}」CustomSql 不可含分號`);
+      if (String(c.Field).indexOf('.') >= 0 && t !== 'DIRECT') errors.push(`${L}別名欄位「${c.Field}」只能 Transform=DIRECT`);
+      if (String(c.Field).indexOf('.') >= 0 && c.Sortable) errors.push(`${L}別名欄位「${c.Field}」Sortable 必須為 false`);
+    });
+    // Operator 白名單
+    const walk = (nodes) => (nodes || []).forEach(nd => {
+      if ((nd.Type || 'CONDITION') === 'GROUP') {
+        if (!nd.Children || !nd.Children.length) errors.push(`${L}GROUP 節點的 Children 不可為空`);
+        walk(nd.Children); return;
+      }
+      const op = (nd.Operator || '').toUpperCase();
+      if (!op) errors.push(`${L}搜尋條件「${nd.Field}」未指定 Operator`);
+      else if (pack.operators.indexOf(op) < 0) errors.push(`${L}搜尋條件「${nd.Field}」Operator=${op} 不在白名單`);
+      if (op === 'CUSTOM_SQL' && !nd.CustomSql) errors.push(`${L}搜尋條件「${nd.Field}」缺 CustomSql`);
+      if (op === 'CUSTOM_SQL_DATE_RANGE' && String(nd.CustomSql || '').indexOf('@time') < 0)
+        errors.push(`${L}搜尋條件「${nd.Field}」CUSTOM_SQL_DATE_RANGE 的 CustomSql 必須含 @time`);
+      if (op === 'CUSTOM_SQL_CHOICE') {
+        const cs = nd.CustomSqlChoices || [];
+        if (!cs.length) errors.push(`${L}搜尋條件「${nd.Field}」缺 CustomSqlChoices`);
+        const ks = new Set();
+        cs.forEach(c => { if (ks.has(c.Key)) errors.push(`${L}CustomSqlChoices 的 Key「${c.Key}」重複`); ks.add(c.Key); });
+      }
+      if (nd.CustomSql && pack.blacklist.test(nd.CustomSql)) errors.push(`${L}搜尋條件「${nd.Field}」CustomSql 觸犯黑名單`);
+    });
+    walk(search);
+    // ExportRequiredField 必須指向 SearchSetting 裡存在的 Field
+    if (it.ExportFlag) {
+      if (!it.ExportRequiredField) errors.push(`${L}ExportFlag=true 但 ExportRequiredField 空白`);
+      else {
+        const fields = [];
+        (function collect(n) { (n || []).forEach(x => { if (x.Field) fields.push(x.Field); collect(x.Children); }); })(search);
+        if (fields.indexOf(it.ExportRequiredField) < 0)
+          errors.push(`${L}ExportRequiredField「${it.ExportRequiredField}」不在 SearchSetting 的 Field 內`);
+      }
+    }
+  });
+  return { errors, warns };
 }
-// #endregion
 
-// #region UTable columns 定義
-const columns: TableColumn<${P}Item>[] = [
-${colDefs}
-]
-// #endregion
+// ── 產生 + 呈現 ──
+function runConfigGeneration() {
+  if (!window._cfgPack) { showError('請先放入設定檔產生器 Skill 包'); return; }
+  const miss = missingSteps();
+  if (miss.length) { showError('請先完成：' + miss.join('、')); return; }
+  const state = window._lastState;
+  const tools = extractTools(state);
+  const wizard = document.getElementById('cfgWizardMode').checked;
 
-useSeoMeta({ title: t('${i18nBase}.title') })
-<\/script>
+  const built = tools.map(t => buildQueryToolConfig(state, t));
+  const items = built.map(b => b.item);
+  const { errors, warns } = validateConfig(items);
 
-<template>
-  <UDashboardPanel>
-    <template #header>
-      <BaseHeaderNavbar :title="t('${i18nBase}.title')" />
-    </template>
+  // wizard 為單一物件 + MenuParentNo；import 為陣列
+  let payload;
+  if (wizard) {
+    const one = Object.assign({}, items[0]);
+    delete one.IndexNo; delete one.InvalidFlag; delete one.MenuNo;
+    one.MenuParentNo = 0;
+    payload = one;
+  } else {
+    payload = items;
+  }
 
-    <template #body>
-      <div class="flex gap-5">
-        <BaseSearchWrap
-          v-model:open="isFilterOpen"
-          :schema="schema"
-          :state="state"
-          @submit="handleSubmit"
-          @reset="handleReset"
-        >
-${filterBlocks.filter(Boolean).join('\n')}
-        </BaseSearchWrap>
-      </div>
+  window._cfgOut = {
+    payload, items, wizard,
+    rows: built.reduce((a, b, i) => a.concat(tools.length > 1 ? [['— ' + tools[i].name + ' —', '', 'ok', '']] : [], b.rows), []),
+    todos: Array.from(new Set(built.reduce((a, b) => a.concat(b.todos), []))),
+    errors, warns, toolCount: tools.length,
+  };
 
-      <BaseTable${showColSelector}
-        :table-props="{
-          data: ${camelP}Data?.Items ?? [],
-          loading: ${camelP}Pending,
-          columns,
-          sticky: true,
-          empty: t('system.table.no_data'),
-        }"
-        :pagination-props="{
-          total: ${camelP}Data?.Total ?? 0,
-          defaultPageSize: 100,
-        }"
-        :page="state.Page"
-        :page-size="state.PageSize"
-        @update:page="handlePageChange"
-        @update:page-size="handlePageSizeChange"
-      />
-    </template>
-  </UDashboardPanel>
-</template>
-`;
+  document.getElementById('cfgSection').style.display = 'block';
+  document.getElementById('cfgEmptySlot').style.display = 'none';
+  document.getElementById('cfgResult').style.display = 'block';
+  document.getElementById('cfgBadge').textContent = wizard ? 'query-tool/wizard（單一物件）' : 'query-tool/import（陣列）';
 
-  // ── 3. i18n（依規範轉義保留字元）──
-  const i18nRows = props.map(p => '      ' + (p.dbName || fePascal(p.col)).toLowerCase() + ': ' + i18nSafe(p.col)).join('\n');
-  const zh = `# ${pack.paths.i18nZh || 'i18n/locales/zh-TW.yaml'}（插入 page: 區塊的 not_found 之前）
-page:
-  ${n.section}:
-    ${n.snake}:
-      title: ${i18nSafe(zhTitle)}
-      table_title: ${i18nSafe(zhTitle)}
-${i18nRows}
-`;
-  const en = `# i18n/locales/en-US.yaml（插入 page: 區塊的 not_found 之前）
-page:
-  ${n.section}:
-    ${n.snake}:
-      title: ${n.entity}
-      table_title: ${n.entity}
-${props.map(p => '      ' + (p.dbName || fePascal(p.col)).toLowerCase() + ': ' + fePascal(p.dbName || p.col)).join('\n')}
-`;
+  const v = document.getElementById('cfgVerdict');
+  if (errors.length) {
+    v.className = 'cfg-verdict bad';
+    v.innerHTML = `❌ 本機驗證未通過（${errors.length} 項）<ul>${errors.map(e => '<li>' + escapeHtml(e) + '</li>').join('')}</ul>`;
+  } else {
+    v.className = 'cfg-verdict ok';
+    v.innerHTML = `✅ 本機驗證通過 — Field 唯一性、Transform／Operator 白名單、CustomSql 黑名單、ExportRequiredField 一致性皆無誤`
+      + (warns.length ? `<ul>${warns.map(w => '<li>⚠️ ' + escapeHtml(w) + '</li>').join('')}</ul>` : '')
+      + `<div style="font-weight:400;margin-top:6px;">此驗證只涵蓋「格式與白名單」，<b>不含 DB 連線可達性、欄位是否真實存在、唯一索引</b>——請工程師先匯入 Dev 實跑一次再上線。</div>`;
+  }
 
-  const auth = `// ${pack.paths.authority || 'app/constants/routeAuthority.ts'} → ROUTE_AUTHORITY_MAP 內新增
-'admin-${n.section}-${n.kebab}': '${n.UPPER}.${n.UPPER}_BROWSER',
-`;
+  const td = document.getElementById('cfgTodo');
+  td.style.display = window._cfgOut.todos.length ? 'block' : 'none';
+  td.innerHTML = '<div class="ct-head">⚠️ 待確認清單（拿這份去問工程師／主管）</div><ul>'
+    + window._cfgOut.todos.map(t => '<li>' + t + '</li>').join('') + '</ul>';
 
-  return [
-    { path: (pack.paths.api || 'app/composables/api/<domain>.ts').replace('<domain>', n.section), content: api, lang: 'ts' },
-    { path: (pack.paths.page || 'app/pages/admin/<section>/<page>.vue').replace('<section>', n.section).replace('<page>', n.kebab), content: page, lang: 'vue' },
-    { path: 'i18n/locales/zh-TW.yaml', content: zh, lang: 'yaml' },
-    { path: 'i18n/locales/en-US.yaml', content: en, lang: 'yaml' },
-    { path: 'app/constants/routeAuthority.ts', content: auth, lang: 'ts' },
-  ];
+  document.getElementById('cfgTable').innerHTML =
+    '<tr><th>規格文件項目</th><th>對應設定</th><th>狀態</th><th>說明</th></tr>' +
+    window._cfgOut.rows.map(r => r[1] === ''
+      ? `<tr><td colspan="4" style="background:var(--surface2);font-weight:700;">${escapeHtml(r[0])}</td></tr>`
+      : `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="st-${r[2]}">${r[2] === 'ok' ? '✅' : '⚠️ 待確認'}</td><td>${r[3]}</td></tr>`).join('');
+
+  document.getElementById('cfgJson').textContent = JSON.stringify(payload, null, 2);
+  document.getElementById('dlCfgBtn').style.display = 'inline-block';
+  document.getElementById('dlChecklistBtn').style.display = 'inline-block';
+  showToast(errors.length ? '⚠️ 設定檔已產生，但驗證有錯' : '⚙️ 設定檔已產生並通過本機驗證');
 }
+
+function switchCfgTab(tab) {
+  const isList = tab === 'list';
+  document.getElementById('cfgListWrap').style.display = isList ? 'block' : 'none';
+  document.getElementById('cfgJson').style.display = isList ? 'none' : 'block';
+  document.getElementById('cfgTabList').classList.toggle('active', isList);
+  document.getElementById('cfgTabJson').classList.toggle('active', !isList);
+}
+
+function cfgBaseName() {
+  const s = window._lastState;
+  return (s ? s.fileName.replace(/\.[^.]+$/, '') : 'query-tool') || 'query-tool';
+}
+function downloadConfigJson() {
+  if (!window._cfgOut) return;
+  const txt = JSON.stringify(window._cfgOut.payload, null, 2);
+  const blob = new Blob([txt], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = cfgBaseName() + (window._cfgOut.wizard ? '_wizard' : '_import') + '.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+  showToast('⬇ 已下載設定檔 JSON');
+}
+function downloadChecklist() {
+  if (!window._cfgOut) return;
+  const strip = h => String(h).replace(/<[^>]+>/g, '');
+  const o = window._cfgOut;
+  const md = [
+    '# 查詢工具設定檔 — 檢查清單',
+    '', `- 來源規格書：${cfgBaseName()}`,
+    `- 產出格式：${o.wizard ? 'wizard（單一物件，連選單一起新建）' : 'import（陣列）'}`,
+    `- 工具數：${o.toolCount}`,
+    `- 本機驗證：${o.errors.length ? '❌ ' + o.errors.length + ' 項錯誤' : '✅ 通過'}`,
+    '', '## 對照表', '',
+    '| 規格文件項目 | 對應設定 | 狀態 | 說明 |', '|---|---|---|---|',
+    ...o.rows.filter(r => r[1] !== '').map(r => `| ${strip(r[0])} | ${strip(r[1])} | ${r[2] === 'ok' ? '✅' : '⚠️'} | ${strip(r[3])} |`),
+    '', '## 待確認清單', '',
+    ...(o.todos.length ? o.todos.map(t => '- ' + strip(t)) : ['- （無）']),
+    ...(o.errors.length ? ['', '## 驗證錯誤', '', ...o.errors.map(e => '- ❌ ' + e)] : []),
+    ...(o.warns.length ? ['', '## 驗證提醒', '', ...o.warns.map(w => '- ⚠️ ' + w)] : []),
+    '', '## 匯入方式（自行決定時機與環境）', '',
+    '```powershell',
+    `Invoke-RestMethod -Uri 'http://<host>/web/query-tool/${o.wizard ? 'wizard' : 'import'}' -Method Post \``,
+    "  -Headers @{ Authorization = 'Bearer <token>' } -ContentType 'application/json' `",
+    `  -InFile '${cfgBaseName()}${o.wizard ? '_wizard' : '_import'}.json'`,
+    '```', '',
+    '> 需要 `TOOL_MENU.ITEM_ADD` 權限的 JWT。本機驗證只涵蓋格式與白名單；連線可達性、欄位是否真實存在、唯一索引皆未驗證，建議先匯入 Dev 實跑一次再推 Staging/Production。',
+  ].join('\n');
+  const blob = new Blob([md], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = cfgBaseName() + '_checklist.md'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+  showToast('📋 已下載檢查清單');
+}
+
 
 // ─── 圈選改圖（離線規則引擎）────────────────────────────────────────────────
 window._editMode = false;
@@ -3874,52 +3248,6 @@ async function downloadDesignHtml() {
       : String(typeof s === 'object' ? s.name : s).replace(/[^\w一-龥]+/g, '').slice(0, 40) || 'AdminView';
   };
 
-  // 有前端 skill 包 → 依 page-generate 規範打包（多檔案，非單一 .vue）
-  if (window._fePack) {
-    const zip = new JSZip();
-    const apiBuckets = {};   // 同 domain 的 API composable 依規範「追加至末端」，不可覆蓋
-    tools.forEach(tool => {
-      buildNuxtFiles(state, tool).forEach(f => {
-        if (/composables\/api\//.test(f.path)) {
-          (apiBuckets[f.path] = apiBuckets[f.path] || []).push(f.content);
-          return;
-        }
-        // i18n / routeAuthority 為片段，多工具時分工具存放避免覆蓋
-        const multi = tools.length > 1 && /\.(yaml|ts)$/.test(f.path);
-        zip.file(multi ? '_fragments/' + toVueName(tool) + '/' + f.path : f.path, f.content);
-      });
-    });
-    Object.keys(apiBuckets).forEach(path => {
-      const parts = apiBuckets[path];
-      // 第一份保留檔頭註解，其餘只取 #region 之後的內容再串接
-      const merged = parts.map((c, i) => {
-        if (i === 0) return c;
-        const at = c.indexOf('// #region');
-        return at >= 0 ? c.slice(at) : c;
-      }).join('\n');
-      zip.file(path, merged);
-    });
-    zip.file('README.md',
-      '# 前端交付包（依 ' + window._fePack.name + ' 規範產出）\n\n' +
-      '技術棧：Nuxt + Nuxt UI + Tailwind v4，遵循 `page-generate` skill。\n\n' +
-      '## 檔案\n' +
-      '- `app/composables/api/*.ts` — API composable（`useProjectAuthApi` + `useAsyncData`，`immediate: false`）\n' +
-      '- `app/pages/admin/**/*.vue` — 頁面 SFC（`#region` 區塊架構、`commitState()` 提交點、`watchImmediate` 觸發）\n' +
-      '- `i18n/locales/*.yaml` — 翻譯片段，請插入既有 `page:` 區塊的 `not_found` **之前**\n' +
-      '- `app/constants/routeAuthority.ts` — 路由權限片段\n\n' +
-      '## 注意\n' +
-      '- 側邊選單由後端 `useGetToolMenu()` 提供，**不要**改 `app/layouts/default.vue`，請後端補選單項目。\n' +
-      '- 進專案後請執行 `pnpm lint:fix`、`pnpm typecheck`；有改 i18n 請跑 `pnpm build` 驗證保留字元。\n' +
-      '- 欄位型別/API 路徑為依規格書推導，請對照規格書確認後調整。\n');
-    const base = state ? state.fileName.replace(/\.[^.]+$/, '') : 'frontend';
-    const blob = await zip.generateAsync({ type: 'blob' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = base + '_nuxt.zip'; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 3000);
-    showToast('⬇ 已依前端 skill 規範打包（' + tools.length + ' 個工具）');
-    return;
-  }
 
   // 多工具 → 全部 .vue 打包成 ZIP
   if (tools.length > 1) {
@@ -4101,25 +3429,10 @@ const skillZone  = document.getElementById('skillZone');
 const skillInput = document.getElementById('skillInput');
 
 skillZone.addEventListener('click', e => {
-  if (window._skillPack) return; // 已載入 → 不重開選檔（移除鈕有自己的 handler）
+  if (window._cfgPack) return; // 已載入 → 不重開選檔（移除鈕有自己的 handler）
   skillInput.click();
 });
-skillInput.addEventListener('change', e => { if (e.target.files[0]) loadSkillPack(e.target.files[0]); });
-
-// 前端 skill 包（選用）
-const feSkillZone  = document.getElementById('feSkillZone');
-const feSkillInput = document.getElementById('feSkillInput');
-feSkillZone.addEventListener('click', () => { if (!window._fePack) feSkillInput.click(); });
-feSkillInput.addEventListener('change', e => { if (e.target.files[0]) loadFeSkillPack(e.target.files[0]); });
-feSkillZone.addEventListener('dragenter', e => { e.preventDefault(); feSkillZone.classList.add('drag-over'); });
-feSkillZone.addEventListener('dragover',  e => { e.preventDefault(); feSkillZone.classList.add('drag-over'); });
-feSkillZone.addEventListener('dragleave', e => { if (!feSkillZone.contains(e.relatedTarget)) feSkillZone.classList.remove('drag-over'); });
-feSkillZone.addEventListener('drop', e => {
-  e.preventDefault(); e.stopPropagation();
-  feSkillZone.classList.remove('drag-over');
-  const f = e.dataTransfer.files[0];
-  if (f) loadFeSkillPack(f);
-});
+skillInput.addEventListener('change', e => { if (e.target.files[0]) loadCfgPack(e.target.files[0]); });
 skillZone.addEventListener('dragenter', e => { e.preventDefault(); skillZone.classList.add('drag-over'); });
 skillZone.addEventListener('dragover',  e => { e.preventDefault(); skillZone.classList.add('drag-over'); });
 skillZone.addEventListener('dragleave', e => {
@@ -4130,81 +3443,26 @@ skillZone.addEventListener('drop', e => {
   e.stopPropagation();
   skillZone.classList.remove('drag-over');
   const file = e.dataTransfer.files[0];
-  if (file) loadSkillPack(file);
+  if (file) loadCfgPack(file);
 });
-
-async function loadSkillPack(file) {
-  if (!/\.zip$/i.test(file.name)) { showError('Skill 包請使用 .zip 格式'); return; }
-  try {
-    const zip = await JSZip.loadAsync(await file.arrayBuffer());
-    // 找出所有 SKILL.md（.agents/skills/{name}/SKILL.md）與 instructions
-    const skills = [];
-    const refs = [];
-    for (const path of Object.keys(zip.files)) {
-      const sm = path.match(/skills\/([^/]+)\/SKILL\.md$/i);
-      if (sm) { skills.push(sm[1]); continue; }
-      if (/instructions\/[^/]+\.instructions\.md$/i.test(path) || /shared-references\/[^/]+\.md$/i.test(path)) {
-        refs.push(path.split('/').pop());
-      }
-    }
-    if (!skills.length && !refs.length) {
-      showError('此 zip 內找不到 SKILL.md 或 instructions 規範檔');
-      return;
-    }
-    window._skillPack = { name: file.name, skills, refs };
-
-    document.getElementById('skillEmpty').style.display = 'none';
-    document.getElementById('skillLoaded').style.display = 'block';
-    document.getElementById('skillPackName').textContent = file.name + '（' + skills.length + ' 個 skill、' + refs.length + ' 份規範）';
-    document.getElementById('skillChips').innerHTML =
-      skills.map(s => `<span class="skill-chip">🧩 ${escapeHtml(s)}</span>`).join('') +
-      refs.map(r => `<span class="skill-chip">📄 ${escapeHtml(r)}</span>`).join('');
-    // 更新第二階段徽章
-    const badge = document.querySelector('.stage2-badge');
-    if (badge) badge.textContent = '依 ' + file.name + ' 規範';
-    showToast('🧩 Skill 包已載入：' + skills.length + ' 個 skill');
-    // 三步驟到齊 → 自動生成（首次生成或依新規範重新生成皆走此路）
-    if (!missingSteps().length) {
-      autoGenerateIfReady();
-      showToast('🧩 三步驟完成，已依 ' + file.name + ' 生成前後端');
-    } else if (window._lastState || window._selectedTemplate) {
-      showToast('還差：' + missingSteps().join('、'));
-    }
-  } catch (err) {
-    showError('Skill 包解析失敗：' + err.message);
-  }
-}
-
-function removeSkillPack(e) {
-  e.stopPropagation();
-  window._skillPack = null;
-  skillInput.value = '';
-  document.getElementById('skillEmpty').style.display = 'flex';
-  document.getElementById('skillLoaded').style.display = 'none';
-  const badge = document.querySelector('.stage2-badge');
-  if (badge) badge.textContent = 'GTW_Admin2Api 慣例';
-  showToast('已移除 Skill 包 — 需重新放入才能再次生成');
-}
 
 document.getElementById('resetBtn').addEventListener('click', () => {
   document.getElementById('results').classList.remove('active');
   document.getElementById('aiSection').style.display = 'none';
-  document.getElementById('stage2Section').style.display = 'none';
+  document.getElementById('cfgSection').style.display = 'none';
   fileInput.value = '';
   window._lastState = null;
   window._generatedVueCode = '';
-  window._backendFiles = null;
+  window._cfgOut = null;
   window._tools = null;
   window._activeToolIdx = 0;
   const toolSel = document.getElementById('toolSelect');
   if (toolSel) toolSel.style.display = 'none';
   document.getElementById('designOutputWrap').style.display = 'none';
-  document.getElementById('stage2Empty').style.display = 'block';
-  document.getElementById('stage2Result').style.display = 'none';
-  document.getElementById('stage2Slot').classList.remove('filled');
-  document.getElementById('downloadBackendBtn').style.display = 'none';
-  document.getElementById('packageBtn').style.display = 'none';
-  document.getElementById('deliveryHint').style.display = 'none';
+  document.getElementById('cfgResult').style.display = 'none';
+  document.getElementById('cfgEmptySlot').style.display = 'flex';
+  document.getElementById('dlCfgBtn').style.display = 'none';
+  document.getElementById('dlChecklistBtn').style.display = 'none';
   document.getElementById('fieldEditor').style.display = 'none';
   window._fieldOverrides = null;
 });
