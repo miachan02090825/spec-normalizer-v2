@@ -2255,6 +2255,61 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-09-01';
+const CFG_AUTH_SNAPSHOT_DATE = '2026-09-03';
+
+// MainConnection → BrowseAuthority 對照（known-browse-authority-snapshot.md 第1節）
+// 這份本質是「猜」不是「查」——權限字串沒有地方能查到新工具「應該」用哪個，
+// 只能依同連線的既有工具慣例推薦，角色範圍一律仍需人工確認。
+const CFG_AUTHORITY_MAP = {
+  GameTower3LogTmd: 'GAME_GOLD.LOG_BROWSE',
+  GameTowerLog2Star31: 'GAME_STAR31.LOG_BROWSE',
+  Slam777Log: 'GAME_SLAM777.LOG_BROWSE',
+  GameTowerLog3Star31: 'GAME_STAR31.LOG_BROWSE',
+  GameTowerLogDonut: 'GAME_DONUT.LOG_BROWSE',
+  PartyGoLog: 'GAME_PARTYGO.LOG_BROWSE',
+  GameTower2Poker: 'GAME_STAR31.LOG_BROWSE',
+  PartyGo: 'GAME_PARTYGO.LOG_BROWSE',
+  GameTowerLogStar31: 'GAME_STAR31.LOG_BROWSE',
+  GameTowerTmd: 'GAME_GOLD.LOG_BROWSE',
+  PwsWeb: 'GAME_STAR31.LOG_BROWSE',
+  Slam888Log: 'GAME_SLAM777.LOG_BROWSE',
+  TadaJlBankCenterMain: 'BANK_CENTER.RECORD_BROWSE',
+  VnJlBankCenterMain: 'BANK_CENTER.RECORD_BROWSE',
+  GameTower2Cluster: 'GAME_STAR31.LOG_BROWSE',
+  GameTower2GTCasino: 'GAME_STAR31.LOG_BROWSE',
+  GameTowerCamDonut: 'GAME_DONUT.LOG_BROWSE',
+  GameTowerSlaveMember: 'GAME_STAR31.LOG_BROWSE',
+  GameTowerWeb: 'GAME_GOLD.LOG_BROWSE',
+  JoyaJlBankCenterMain: 'BANK_CENTER.RECORD_BROWSE',
+  MemberCenterMain: 'MEMBER.ACCOUNT_DATA_BROWSE',
+  Slam888Slam: 'GAME_SLAM777.LOG_BROWSE',
+  ThIgBankCenterMain: 'BANK_CENTER.RECORD_BROWSE',
+  VnIgBankCenterMain: 'BANK_CENTER.RECORD_BROWSE',
+};
+// 快照查無時的命名樣式（第2節）。含兩個已知陷阱：Tmd→GAME_GOLD（不是 GAME_TMD）、
+// Slam888→GAME_SLAM777（不是 GAME_SLAM888）；動作字尾也不是都 LOG_BROWSE。
+const CFG_AUTHORITY_PATTERNS = [
+  [/BankCenterMain/i, 'BANK_CENTER.RECORD_BROWSE'],
+  [/MemberCenterMain/i, 'MEMBER.ACCOUNT_DATA_BROWSE'],
+  [/Star31/i, 'GAME_STAR31.LOG_BROWSE'],
+  [/Tmd/i, 'GAME_GOLD.LOG_BROWSE'],
+  [/Donut/i, 'GAME_DONUT.LOG_BROWSE'],
+  [/Slam777|Slam888/i, 'GAME_SLAM777.LOG_BROWSE'],
+  [/PartyGo(?!Config|Credit)/i, 'GAME_PARTYGO.LOG_BROWSE'],
+];
+function inferBrowseAuthority(conn) {
+  if (!conn || /^TODO_/.test(conn)) {
+    return { value: 'TODO_瀏覽權限字串', note: '連線尚未確定，無法推薦權限字串', level: 'warn' };
+  }
+  if (CFG_AUTHORITY_MAP[conn]) {
+    return { value: CFG_AUTHORITY_MAP[conn], note: '依快照中同連線既有工具的慣例（建議值）', level: 'ok' };
+  }
+  for (const [re, v] of CFG_AUTHORITY_PATTERNS) {
+    if (re.test(conn)) return { value: v, note: '快照無此連線，依命名樣式推測（建議值）', level: 'ok' };
+  }
+  // 套不上樣式就別硬猜：猜錯可能誤植成語意不符的既有權限碼，讓不該看到的角色看得到
+  return { value: 'TODO_瀏覽權限字串（連線' + conn + '無既有樣式可循）', note: '無既有樣式可循，不硬猜', level: 'warn' };
+}
 const CFG_TRANSFORMS = ['DIRECT', 'CODE_TABLE', 'JOIN_LOOKUP', 'CUSTOM_MAPPING', 'CUSTOM_SQL'];
 const CFG_OPERATORS = ['EQ', 'NE', 'GT', 'GE', 'LT', 'LE', 'LIKE', 'IN', 'BETWEEN',
   'CUSTOM_SQL', 'CUSTOM_SQL_CHOICE', 'CUSTOM_SQL_DATE_RANGE', 'QUERY_ACCOUNT', 'QUERY_NICKNAME'];
@@ -2289,7 +2344,9 @@ function renderBuiltinRules() {
   const chips = document.getElementById('skillChips');
   if (chips) chips.innerHTML = [
     '⭐ query-tool-config-generator', '📄 schema 形狀',
-    '🔌 連線快照 ' + p.connections.length + ' 組（' + p.snapDate + '）', '✔ 內建驗證',
+    '🔌 連線快照 ' + p.connections.length + ' 組（' + p.snapDate + '）',
+    '🔑 權限快照 ' + Object.keys(CFG_AUTHORITY_MAP).length + ' 組（' + CFG_AUTH_SNAPSHOT_DATE + '）',
+    '✔ 內建驗證',
   ].map(s => `<span class="skill-chip">${escapeHtml(s)}</span>`).join('');
   const el = document.getElementById('feRules');
   if (el) el.innerHTML =
@@ -2299,7 +2356,9 @@ function renderBuiltinRules() {
     `<li>連線識別碼快照 <b>${p.connections.length}</b> 組（擷取於 ${p.snapDate}）——<b>只有完全相符才自動填</b>，其餘列候選並標 <code>TODO_</code></li>` +
     `<li>CustomSql 黑名單（分號／DML／DDL／<code>xp_</code>／<code>sp_</code>）、Field 全域唯一、ExportRequiredField 一致性</li>` +
     `<li><b>ViewDataSetting／SearchSetting／RelatedTableSetting 會序列化成字串</b>（schema 明列最易錯的一步）</li>` +
+    `<li><b>BrowseAuthority</b> 依 ${CFG_AUTH_SNAPSHOT_DATE} 權限快照（${Object.keys(CFG_AUTHORITY_MAP).length} 組）＋命名樣式推薦建議值（含 Tmd→<code>GAME_GOLD</code>、Slam888→<code>GAME_SLAM777</code> 兩個陷阱）；套不上樣式就留 <code>TODO_</code> 不硬猜</li>` +
     `<li>快照會過期：清單裡沒有<b>不代表不存在</b>，標 <code>TODO_</code> 交工程師確認，不自行發明識別碼</li>` +
+    `<li>不產出這幾類雜訊：章節說明被當成欄位、<code>FieldN</code> 佔位欄名、拿顯示欄位硬湊搜尋條件</li>` +
     '</ul>';
 }
 
@@ -2403,6 +2462,7 @@ function buildQueryToolConfig(state, tool) {
   const props = (meta.props || []).filter(p => p && p.col);
   const todos = [];      // 待確認清單
   const rows  = [];      // 對照表
+  const todoFields = []; // 找不到真實 DB 欄位名的欄位
 
   const toolName = (tool && tool.name) || meta.entity || '未命名查詢工具';
 
@@ -2439,10 +2499,16 @@ function buildQueryToolConfig(state, tool) {
   if (hasTable) rows.push([`資料表 <code>${escapeHtml(meta.table)}</code>`, 'MainTable', 'ok', '規格書有三段式表名']);
   else { todos.push('<b>MainTable</b>：規格書沒有寫出資料表名稱，需補'); rows.push(['資料表', 'MainTable=<code>TODO_未指定資料表</code>', 'warn', '規格書未寫']); }
 
-  // 3) 權限字串
-  const authority = 'TODO_瀏覽權限字串';
-  todos.push('<b>BrowseAuthority</b>：瀏覽權限字串需由工程師/主管指定（請勿自行發明權碼）');
-  rows.push(['瀏覽權限', 'BrowseAuthority=<code>TODO_瀏覽權限字串</code>', 'warn', '需依既有權碼體系指定']);
+  // 3) 權限字串（依 known-browse-authority-snapshot 推薦，但角色範圍仍要人工確認）
+  const auth = inferBrowseAuthority(mainConnection);
+  const authority = auth.value;
+  if (auth.level === 'ok') {
+    todos.push(`<b>BrowseAuthority</b>：已填入建議值 <code>${escapeHtml(authority)}</code>（${escapeHtml(auth.note)}）。<b>這是依同類工具慣例推薦，不是查出來的</b>——請確認這個工具該開放給哪些角色`);
+    rows.push(['瀏覽權限', `BrowseAuthority=<code>${escapeHtml(authority)}</code>`, 'ok', auth.note + '，仍需確認角色範圍']);
+  } else {
+    todos.push(`<b>BrowseAuthority</b>：${escapeHtml(auth.note)}，需工程師/主管指定（請勿自行發明權碼）`);
+    rows.push(['瀏覽權限', `BrowseAuthority=<code>${escapeHtml(authority)}</code>`, 'warn', auth.note]);
+  }
 
   // 4) 選單位置
   const menuNo = 0;
@@ -2450,10 +2516,19 @@ function buildQueryToolConfig(state, tool) {
 
   // 5) 顯示欄位
   const used = new Set();
-  const viewData = props.map(p => {
-    let field = p.dbName || fePascalSafe(p.col);
+  const dropped = [];
+  const viewData = props.filter(p => {
+    // 瑕疵③：規格文件的章節說明/備註被誤判成資料欄位（「單一分頁，2」「個頁籤，全頁唯讀」…）
+    if (isNotAColumnTitle(p.col)) { dropped.push(p.col); return false; }
+    return true;
+  }).map(p => {
+    const guessed = !p.dbName || /^Field\d+$/.test(p.dbName);
+    // 瑕疵②：找不到真實欄位代號時原本會編號成 FieldN 直接匯入，該欄永遠查不到資料。
+    // 改成明確標記，讓工程師（或用「✏️ 欄位確認/修改」）補上真實欄位名，不留 FieldN。
+    let field = guessed ? 'TODO_待確認欄位_' + fePascalSafe(p.col) : p.dbName;
     while (used.has(field)) field = field + '_2';   // Field 全域唯一（schema 第3節規則1）
     used.add(field);
+    if (guessed) todoFields.push(p.col);
     const spec = {
       Field: field,
       Title: p.col,
@@ -2465,27 +2540,39 @@ function buildQueryToolConfig(state, tool) {
     };
     rows.push([`顯示「${escapeHtml(p.col)}」`,
       `DisplayColumnSpec Field=<code>${escapeHtml(field)}</code>, Transform=DIRECT`,
-      'ok', cfgIsNumeric(p) ? '數值：千分位＋靠右' : '']);
+      guessed ? 'warn' : 'ok',
+      guessed ? '規格書沒寫這欄的真實 DB 欄位名' : (cfgIsNumeric(p) ? '數值：千分位＋靠右' : '')]);
     return spec;
   });
+  if (dropped.length) {
+    rows.push(['（已排除非欄位項目）', dropped.map(escapeHtml).join('、'), 'ok', '看起來是規格書的章節說明/備註，不是資料欄位']);
+  }
+  if (todoFields.length) {
+    todos.push(`<b>顯示欄位</b>：<code>${todoFields.map(escapeHtml).join('</code>／<code>')}</code> 這 ${todoFields.length} 欄，規格書沒寫真實 DB 欄位名，已標成 <code>TODO_待確認欄位_*</code>。<b>匯入前一定要改成真實欄位名</b>，否則該欄查不到資料（可用上方「✏️ 欄位確認/修改」直接填）`);
+  }
   if (!viewData.length) {
     todos.push('<b>ViewDataSetting</b>：規格書沒抓到任何欄位定義，設定檔的顯示欄位為空，必須手動補');
     rows.push(['顯示欄位', 'ViewDataSetting=<code>[]</code>', 'warn', '規格書無欄位定義表']);
   }
 
-  // 6) 搜尋條件：日期優先，其餘取前 3 個可搜尋欄位
+  // 6) 搜尋條件
+  // 舊版是「日期 + 顯示欄位前 3 個」硬湊，等於把數值型顯示欄位當成 EQ 搜尋條件，多半文不對題。
+  // 改成：先從規格書的搜尋/查詢條件段落找出真的被點名的欄位；找不到就只留日期區間並明說沒推斷出來。
   const dateP = props.find(p => cfgOperatorFor(p) === 'BETWEEN');
-  const others = props.filter(p => p !== dateP && cfgOperatorFor(p) !== 'BETWEEN').slice(0, 3);
-  const searchProps = (dateP ? [dateP] : []).concat(others);
+  const named = findNamedSearchFields(text, props).filter(p => p !== dateP);
+  const searchProps = (dateP ? [dateP] : []).concat(named);
   const search = searchProps.map(p => {
     const op = cfgOperatorFor(p);
-    rows.push([`搜尋「${escapeHtml(p.col)}」`, `Operator=<code>${op}</code>`, 'ok',
-      op === 'BETWEEN' ? '區間（值以 ~ 分隔）' : op === 'LIKE' ? '模糊比對' : '精確比對']);
+    const why = p === dateP ? '規格書的日期欄位 → 區間查詢（值以 ~ 分隔）'
+                            : '規格書的搜尋條件段落有點名這個欄位';
+    rows.push([`搜尋「${escapeHtml(p.col)}」`, `Operator=<code>${op}</code>`, 'ok', why]);
     return { Type: 'CONDITION', Field: p.dbName || fePascalSafe(p.col), Label: p.col, Operator: op, Logic: 'AND' };
   });
-  if (!search.length) {
-    todos.push('<b>SearchSetting</b>：沒有推斷出搜尋條件，使用者將無法篩選，建議至少加一個日期區間');
-    rows.push(['搜尋條件', 'SearchSetting=<code>[]</code>', 'warn', '無可推斷欄位']);
+  if (!named.length) {
+    todos.push('<b>SearchSetting</b>：規格書沒有明確寫出要用哪些欄位搜尋，因此<b>只放了日期區間</b>（若有）。'
+      + '請對照規格書補上真正的搜尋條件與運算子——<b>不要沿用預設值就直接匯入</b>');
+    rows.push(['搜尋條件', search.length ? '僅日期區間' : 'SearchSetting=<code>[]</code>',
+      'warn', '規格書未明確描述搜尋需求，未自行湊數']);
   }
 
   // 7) 匯出：有日期區間才開，並指定為必填搜尋欄位（規範：避免無條件匯出全表）
@@ -2511,6 +2598,62 @@ function buildQueryToolConfig(state, tool) {
   };
   return { item, rows, todos, viewData, search };
 }
+// 從規格書的「搜尋條件／查詢條件／搜尋功能／篩選」段落，找出真的被點名的欄位。
+// 沒有依據就不要湊——湊出來的搜尋條件看似合理，實際上多半不是使用者要的。
+function findNamedSearchFields(text, props) {
+  const lines = String(text || '').split(/\r?\n/);
+  const HEAD = /搜尋條件|查詢條件|搜尋功能|篩選條件|搜尋欄位/;
+  // 只認「短且獨立的標題列」。欄位表的資料列描述裡常出現「查詢條件」「篩選條件」等字眼，
+  // 若把那種列當成標題，後面整張欄位表都會被誤收，等於又變成拿顯示欄位硬湊搜尋條件。
+  const isHeading = (l) => {
+    const segs = l.split('|').map(s => s.trim()).filter(Boolean);
+    if (segs.length > 2) return false;
+    const joined = segs.join('');
+    return joined.length <= 24 && HEAD.test(joined);
+  };
+  // 搜尋段落一定要在碰到「查詢結果／顯示欄位／資料表位置／頁籤」等下一個區塊時就停，
+  // 否則會一路吃進顯示欄位表，等於又把顯示欄位當成搜尋條件。
+  const STOP = /查詢結果|顯示欄位|結果表格|資料表位置|對應資料表欄位|^\s*▍|頁籤\s*\d|注意事項|欄位定義/;
+  const zone = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!isHeading(lines[i])) continue;
+    let blanks = 0;
+    for (let j = i + 1; j < lines.length && j < i + 12; j++) {
+      if (/^[\s|]*$/.test(lines[j])) { if (++blanks >= 2) break; continue; }
+      if (isHeading(lines[j]) || STOP.test(lines[j])) break;
+      blanks = 0;
+      zone.push(lines[j]);
+    }
+  }
+  if (!zone.length) return [];
+  const blob = zone.join('\n');
+  const seen = new Set();
+  return props.filter(p => {
+    const name = String(p.col || '').trim();
+    if (!name || name.length < 2 || seen.has(name)) return false;
+    // 欄名（或去掉括號註記後的主體）出現在搜尋段落裡才算被點名。
+    // 「會員編號/帳號/暱稱」這種合併欄名，任一段被點名就算（規格書常只寫其中一種說法）。
+    const core = name.replace(/[（(].*?[）)]/g, '').trim();
+    const parts = core.split(/[\/／、]/).map(s => s.trim()).filter(s => s.length >= 2);
+    const hit = blob.includes(name) || (core.length >= 2 && blob.includes(core))
+             || parts.some(s => blob.includes(s));
+    if (hit) seen.add(name);
+    return hit;
+  }).slice(0, 5);
+}
+
+// 規格文件的章節說明/備註常被誤判成資料欄位，這些不該進 ViewDataSetting
+function isNotAColumnTitle(s) {
+  const t = String(s || '').trim();
+  if (!t) return true;
+  if (/^[\/\-–—、,，.。：:]+$/.test(t)) return true;            // 純符號（「/」之類）
+  if (/^\d+$/.test(t)) return true;                              // 純數字
+  if (/頁籤|分頁|唯讀|唯讀性|相關設定|路徑|選單|權限|說明$|備註$|注意事項|示意圖|總覽/.test(t)) return true;
+  if (/^(遊戲工具|查詢工具|設定工具|後端工具選單|工具入口)$/.test(t)) return true;  // 選單路徑片段
+  if (t.length > 24) return true;                                // 過長 → 多半是敘述句
+  return false;
+}
+
 function fePascalSafe(s) {
   const v = String(s || '').replace(/[^\w]/g, '');
   return /^[A-Za-z_]/.test(v) ? v : ('F_' + v || 'Field');
