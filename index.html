@@ -1922,7 +1922,11 @@ function switchTool(idx) {
 }
 
 // ─── 欄位確認/修改（企劃把關點）──────────────────────────────────────────────
-function overrideKey(tool) { return tool ? (tool.sheetName || tool.name) : '__single__'; }
+// 同一分頁可能切出多個工具（頁籤1/頁籤2），鍵不能只用分頁名，否則覆寫會互相蓋掉
+function overrideKey(tool) {
+  if (!tool) return '__single__';
+  return tool.isSection ? (tool.sheetName || '') + '#' + tool.name : (tool.sheetName || tool.name);
+}
 
 function toggleFieldEditor(show) {
   const panel = document.getElementById('fieldEditor');
@@ -2375,12 +2379,16 @@ function extractSpecMeta(state, tool) {
   }
 
   // 企劃於「✏️ 欄位」面板調整過 → 以調整後為準
-  const ov = window._fieldOverrides && window._fieldOverrides[tool ? (tool.sheetName || tool.name) : '__single__'];
+  const ov = window._fieldOverrides && window._fieldOverrides[overrideKey(tool)];
   const finalProps = ov || props;
   const finalColumns = ov ? ov.map(p => p.col) : columns;
 
+  // 欄位名稱的來源：規格書明寫的、使用者確認過的，還是程式用字典拼出來的？
+  // 拼出來的名稱看起來像欄位（Platform），但規格書從沒說過這張表有這一欄。
+  const fieldSource = ov ? 'user' : (pairs.length >= 3 ? 'spec' : 'guess');
+
   const toolTitle = (tool && tool.name) || (state.fileName || '').replace(/\.[^.]+$/, '');
-  return { columns: finalColumns, dbFields, db, schema, table, entity, kebab, moduleName, domain, context, props: finalProps, toolTitle };
+  return { columns: finalColumns, dbFields, db, schema, table, entity, kebab, moduleName, domain, context, props: finalProps, toolTitle, fieldSource };
 }
 
 
@@ -2392,7 +2400,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-09-04e';
+const APP_BUILD = '2026-09-04f';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-09-01';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-09-03';
@@ -2677,9 +2685,9 @@ function buildQueryToolConfig(state, tool) {
     if (isNotAColumnTitle(p.col)) { dropped.push(p.col); return false; }
     return true;
   }).map(p => {
-    const guessed = !p.dbName || /^Field\d+$/.test(p.dbName);
-    // 瑕疵②：找不到真實欄位代號時原本會編號成 FieldN 直接匯入，該欄永遠查不到資料。
-    // 改成明確標記，讓工程師（或用「✏️ 欄位確認/修改」）補上真實欄位名，不留 FieldN。
+    // 瑕疵②：規格書沒寫真實欄位代號時，程式會用字典拼一個（FieldN 或「Platform」這種）。
+    // 兩者都是編出來的，差別只在後者比較像真的——一樣不能當成真實 DB 欄位直接匯入。
+    const guessed = meta.fieldSource === 'guess' || !p.dbName || /^Field\d+$/.test(p.dbName);
     let field = guessed ? 'TODO_待確認欄位_' + fePascalSafe(p.col) : p.dbName;
     while (used.has(field)) field = field + '_2';   // Field 全域唯一（schema 第3節規則1）
     used.add(field);
