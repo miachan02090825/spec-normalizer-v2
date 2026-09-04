@@ -547,6 +547,7 @@ body {
 }
 .cfg-picker .cp-head { font-weight: 700; margin-bottom: 3px; }
 .cp-count { color: var(--accent); font-size: 1.05rem; }
+.cp-blocked { color: var(--warn); font-weight: 600; }
 .cp-sub-inline { font-weight: 400; font-size: 0.73rem; color: var(--text2); margin-left: 6px; }
 .cfg-picker .cp-sub { font-size: 0.73rem; color: var(--text2); margin-bottom: 9px; line-height: 1.55; }
 .cp-row {
@@ -2919,15 +2920,18 @@ function assessTool(state, tool) {
   return { level: 'no', badge: '不像工具', why: '沒有資料表位置、也沒有欄位定義表 → 多半是總覽／結構說明頁，不是查詢工具' };
 }
 
-function renderToolPicker(tools, assess, pickedCount, anyOk) {
+function renderToolPicker(tools, assess, outCount, anyOk, checkedCount) {
   const el = document.getElementById('cfgPicker');
   if (!el) return;
+  const pickedCount = checkedCount == null ? outCount : checkedCount;
+  const blockedNote = (checkedCount != null && checkedCount > outCount)
+    ? `<span class="cp-blocked">，其中 ${checkedCount - outCount} 個因無法匯入被擋下</span>` : '';
   const sub = anyOk
     ? '一個 Excel 分頁可能是總覽頁（0 個工具），也可能描述好幾個頁籤（多個工具），所以是以「欄位對照表」為單位切的。預設只勾「欄位有明確定義」的，總覽頁／結構說明頁硬產出會變成壞掉的工具，已先不勾。'
     : '這份文件找不到任何欄位定義表，所以全部先勾起來——請自行取消不需要的。';
   el.innerHTML =
-    `<div class="cp-head">📄 這份規格書會產出 <b class="cp-count">${pickedCount}</b> 個工具`
-    + `<span class="cp-sub-inline">（下方 ${tools.length} 個候選中已勾選 ${pickedCount} 個）</span></div>` +
+    `<div class="cp-head">📄 這份規格書會產出 <b class="cp-count">${outCount}</b> 個工具`
+    + `<span class="cp-sub-inline">（${tools.length} 個候選中已勾 ${pickedCount} 個${blockedNote}）</span></div>` +
     `<div class="cp-sub">${sub}</div>` +
     tools.map((t, i) => {
       const a = assess[i], on = !!window._toolSel[i];
@@ -3008,9 +3012,24 @@ function runConfigGeneration() {
   }
 
   const pickedTools = picked.map(i => tools[i]);
-  const built = pickedTools.map(t => buildQueryToolConfig(state, t));
+  const builtAll = pickedTools.map(t => buildQueryToolConfig(state, t));
+
+  // 無法匯入的整筆擋掉，不管使用者有沒有勾到。
+  // 沒有真實資料表、或所有欄位都還是待確認 → 匯進去只會多一個查不到資料的空殼工具。
+  const blocked = [];
+  const built = builtAll.filter(b => {
+    const it = b.item;
+    const view = JSON.parse(it.ViewDataSetting || '[]');
+    let why = null;
+    if (/^TODO_/.test(it.MainTable)) why = '沒有可查的資料表（MainTable 仍是待確認）';
+    else if (!view.length) why = '沒有任何顯示欄位';
+    else if (view.every(c => /^TODO_/.test(c.Field))) why = '所有欄位都還沒對到真實 DB 欄位名';
+    if (why) { blocked.push({ name: it.ToolName, why }); return false; }
+    return true;
+  });
   const items = built.map(b => b.item);
   const { errors, warns } = validateConfig(items);
+  blocked.forEach(b => warns.push(`「${b.name}」未寫進檔案：${b.why}`));
 
   // wizard 為單一物件 + MenuParentNo；import 為陣列
   let payload;
@@ -3030,13 +3049,17 @@ function runConfigGeneration() {
   }
 
   window._cfgOut = {
-    payload, items, wizard,
-    rows: built.reduce((a, b, i) => a.concat(pickedTools.length > 1 ? [['— ' + pickedTools[i].name + ' —', '', 'ok', '']] : [], b.rows), []),
+    payload, items, wizard, blocked,
+    // 分組標題用實際寫進檔案的那幾筆，擋掉的不能再用 pickedTools 的索引去對
+    rows: built.reduce((a, b, i) => a.concat(items.length > 1 ? [['— ' + items[i].ToolName + ' —', '', 'ok', '']] : [], b.rows), []),
     todos: Array.from(new Set(built.reduce((a, b) => a.concat(b.todos), []))),
     errors, warns,
-    toolCount: pickedTools.length,
-    skipped: tools.filter((t, i) => !window._toolSel[i]).map(t => t.name),
+    toolCount: wizard ? Math.min(1, items.length) : items.length,
+    skipped: tools.filter((t, i) => !window._toolSel[i]).map(t => t.name)
+      .concat(blocked.map(b => b.name + '（無法匯入：' + b.why + '）')),
   };
+  // 勾選面板的數字要跟實際寫進檔案的一致（擋掉的不算）
+  renderToolPicker(tools, assess, window._cfgOut.toolCount, assess.some(a => a.level === 'ok'), picked.length);
 
   document.getElementById('cfgBadge').textContent = wizard ? 'query-tool/wizard（單一物件）' : 'query-tool/import（陣列）';
 
@@ -3064,6 +3087,18 @@ function runConfigGeneration() {
       : `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="st-${r[2]}">${r[2] === 'ok' ? '✅' : '⚠️ 待確認'}</td><td>${r[3]}</td></tr>`).join('');
 
   document.getElementById('cfgJson').textContent = JSON.stringify(payload, null, 2);
+  if (!items.length) {
+    document.getElementById('cfgVerdict').className = 'cfg-verdict bad';
+    document.getElementById('cfgVerdict').innerHTML = '❌ 勾選的項目都無法匯入，沒有產生設定檔<ul>'
+      + blocked.map(b => `<li>「${escapeHtml(b.name)}」：${escapeHtml(b.why)}</li>`).join('') + '</ul>';
+    document.getElementById('cfgTodo').style.display = 'none';
+    document.getElementById('cfgTable').innerHTML = '';
+    document.getElementById('cfgJson').textContent = '';
+    document.getElementById('dlCfgBtn').style.display = 'none';
+    document.getElementById('dlChecklistBtn').style.display = 'none';
+    return;
+  }
+
   const dl = document.getElementById('dlCfgBtn');
   const outCount = wizard ? 1 : items.length;   // wizard 只輸出一個
   dl.style.display = 'inline-block';
