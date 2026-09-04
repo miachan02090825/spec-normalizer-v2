@@ -527,6 +527,17 @@ body {
   color: var(--text2); background: var(--bg);
   border: 1px solid var(--border); border-radius: 20px; padding: 1px 8px;
 }
+/* 右下角常駐版本戳：回報問題時第一件事就是對這個 */
+.build-corner {
+  position: fixed; right: 12px; bottom: 12px; z-index: 40;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.7rem; font-weight: 600; color: var(--text2);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 3px 10px;
+  white-space: nowrap; user-select: all;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.build-corner:hover { color: var(--text); }
 .skill-zone.builtin { cursor: default; }
 .skill-zone.builtin:hover { border-color: var(--border); background: var(--surface2); }
 .fe-rules {
@@ -686,6 +697,7 @@ body {
 </style>
 </head>
 <body>
+<div class="build-corner" id="buildCorner" title="回報問題時請一起提供這個版本戳"></div>
 <div class="container">
   <div class="header">
     <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
@@ -2433,7 +2445,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-09-04l';
+const APP_BUILD = '2026-09-04m';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-09-01';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-09-03';
@@ -2545,6 +2557,15 @@ function renderBuiltinRules() {
     '</ul>';
 }
 
+// 實體 DB 名 → 已知連線識別碼（appsettings.MsSqlColl 裡確認存在）。
+// 只放經工程師確認的對應：規格書寫的 [Database] 是 SQL Server 實體 DB 名，
+// 連線識別碼是後端路由用的鍵，兩者命名空間不同。加進來前務必先驗證後端真的有這個連線；
+// 加了但 MsSqlColl 沒有 → 匯入通過、查詢時撞 Error [9000]。
+const CFG_DB_TO_CONNECTION = {
+  // GameTower2_TMD 實際掛在 GameTowerTmd（版本數字不進連線名）。2026-09-04 由 miachan 確認。
+  'gametower2tmd': 'GameTowerTmd',
+};
+
 // ── 連線識別碼比對（語意比對，非字面相等）──
 function matchConnection(dbName, hintText) {
   const pack = window._cfgPack;
@@ -2552,6 +2573,11 @@ function matchConnection(dbName, hintText) {
   const norm = s => String(s || '').toLowerCase().replace(/[_\-\s]/g, '');
   const target = norm(dbName);
   if (!target) return { value: null, candidates: [] };
+  // 先查別名表：規格書寫的實體 DB 名不必然等於連線識別碼
+  const aliasHit = CFG_DB_TO_CONNECTION[target];
+  if (aliasHit && pack.connections.indexOf(aliasHit) >= 0) {
+    return { value: aliasHit, candidates: [], reason: 'alias' };
+  }
   // 同時切底線與駝峰：SlamConfig → slam / config；GameTower3_Log → gametower3 / log
   const words = s => String(s || '').replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .split(/[^A-Za-z0-9]+/).filter(Boolean).map(w => w.toLowerCase());
@@ -2657,7 +2683,9 @@ function buildQueryToolConfig(state, tool) {
   let mainConnection;
   if (conn.value) {
     mainConnection = conn.value;
-    const how = conn.reason === 'exact' ? '名稱完全相符' : '唯一涵蓋「' + meta.db + '」所有關鍵詞的連線';
+    const how = conn.reason === 'exact' ? '名稱完全相符'
+      : conn.reason === 'alias' ? '實體 DB 名 → 已知連線的別名對照（後端 appsettings 有此連線）'
+      : '唯一涵蓋「' + meta.db + '」所有關鍵詞的連線';
     rows.push([`資料來源「${escapeHtml(meta.db)}」`, `MainConnection=<code>${escapeHtml(conn.value)}</code>`, 'ok', how]);
   } else if (conn.candidates.length) {
     mainConnection = 'TODO_連線待確認';
@@ -3448,6 +3476,8 @@ document.getElementById('resetBtn').addEventListener('click', () => {
 
 // 內建規範明細（頁面載入即渲染）
 renderBuiltinRules();
+const _bc = document.getElementById('buildCorner');
+if (_bc) _bc.textContent = 'v ' + APP_BUILD;
 </script>
 </body>
 </html>
