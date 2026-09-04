@@ -1799,6 +1799,7 @@ async function processFile(file) {
     window._fieldOverrides = null;  // 舊文件的欄位覆寫不得沿用（同名分頁會誤套）
     window._toolSel = null;         // 換文件 → 分頁勾選重新依內容判斷
     window._menuInfo = null;        // 換文件 → 選單位置重新從規格書取
+    window._menuTable = null;       // 換文件 → 選單對照表重讀
 
     // 顯示生成前端介面區（移到成功路徑末尾）
     const aiSection = document.getElementById('aiSection');
@@ -2429,7 +2430,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-09-04h';
+const APP_BUILD = '2026-09-04i';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-09-01';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-09-03';
@@ -2705,7 +2706,11 @@ function buildQueryToolConfig(state, tool) {
   // 4) 選單位置：路徑從規格書帶出來，MenuNo 由使用者填（API 只吃數字）
   const mKey = overrideKey(tool);
   const mi = (window._menuInfo = window._menuInfo || {});
-  if (!mi[mKey]) mi[mKey] = { path: extractMenuPath(text, state.flatText), menuNo: 0 };
+  if (!mi[mKey]) {
+    // 先查「後端選單規劃」對照表（可能在別的分頁），沒有才退回逐行掃描
+    const table = (window._menuTable = window._menuTable || extractMenuPathTable(state));
+    mi[mKey] = { path: menuPathFor(tool, table) || extractMenuPath(text, state.flatText), menuNo: 0 };
+  }
   const menuPath = mi[mKey].path || '';
   const menuNo = mi[mKey].menuNo || 0;
   if (menuNo > 0) {
@@ -2953,6 +2958,42 @@ function buildToolCandidates(state) {
 // ── 選單位置（工具要掛在後台選單的哪個路徑）──
 // 匯入 API 只吃數字 MenuNo，沒有路徑欄位；但規格書幾乎都寫了路徑，
 // 抓出來讓企劃確認並帶進交付說明，工程師才不用回頭翻規格書。
+// 規格書常有一張「後端選單規劃」對照表：工具 | 選單路徑 | 說明（可能放在別的分頁）。
+// 這比逐行猜可靠得多，優先用它；路徑分隔符 / → > 都有人用。
+function extractMenuPathTable(state) {
+  const p = state.parsed;
+  const map = [];
+  const sheets = (p && p.type === 'xlsx' && p.sheets) ? Object.values(p.sheets) : [];
+  const rowsets = sheets.length ? sheets
+    : [String(state.flatText || '').split(/\r?\n/).map(l => l.split('|'))];
+  rowsets.forEach(rows => {
+    let nameIdx = -1, pathIdx = -1;
+    rows.forEach(r => {
+      const cells = r.map(c => String(c == null ? '' : c).trim());
+      const ni = cells.findIndex(c => /^(工具|工具名稱|工具名)$/.test(c));
+      const pi = cells.findIndex(c => /選單路徑|選單位置|工具位置|路徑/.test(c));
+      if (ni >= 0 && pi >= 0 && ni !== pi) { nameIdx = ni; pathIdx = pi; return; }
+      if (nameIdx < 0) return;                       // 還沒遇到表頭
+      const nm = cells[nameIdx] || '', pa = cells[pathIdx] || '';
+      if (!nm && !pa) { nameIdx = -1; return; }       // 空列 → 表結束
+      if (!nm || !pa || !/[\/→>＞»›]/.test(pa)) return;
+      const parts = pa.split(/\s*[\/→>＞»›]\s*/).map(s => s.trim()).filter(Boolean);
+      if (parts.length >= 2) map.push({ tool: nm, path: parts.join(' > ') });
+    });
+  });
+  return map;
+}
+// 依工具名／分頁名，從對照表挑出這個工具的選單路徑
+function menuPathFor(tool, table) {
+  if (!table.length) return '';
+  const cand = [tool && tool.name, tool && tool.sheetName].filter(Boolean);
+  for (const c of cand) {
+    const hit = table.find(m => m.tool === c || m.tool.includes(c) || c.includes(m.tool));
+    if (hit) return hit.path;
+  }
+  return table.length === 1 ? table[0].path : '';
+}
+
 function extractMenuPath(text, fallbackText) {
   const SEP = /[→>＞»›→]/;
   const scan = (t) => {
@@ -3157,6 +3198,19 @@ function runConfigGeneration() {
   const items = built.map(b => b.item);
   const { errors, warns } = validateConfig(items);
   blocked.forEach(b => warns.push(`「${b.name}」未寫進檔案：${b.why}`));
+
+  // 規格書的「後端選單規劃」列了哪些工具，但這份文件沒有它的欄位定義 → 少做了一個工具
+  const mTable = window._menuTable || [];
+  if (mTable.length) {
+    const madePaths = new Set(items.map(it => ((window._menuInfo || {})[
+      overrideKey(pickedTools[items.indexOf(it)] || null)] || {}).path).filter(Boolean));
+    const missing = mTable.filter(m => !madePaths.has(m.path));
+    if (missing.length) {
+      warns.push('規格書的「後端選單規劃」還列了 '
+        + missing.map(m => `「${m.tool}」`).join('、')
+        + '，但這份文件裡找不到它的欄位定義，所以沒有產出——請確認是不是要另外補規格或另一份文件');
+    }
+  }
 
   // wizard 為單一物件 + MenuParentNo；import 為陣列
   let payload;
@@ -3370,6 +3424,7 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   window._fieldOverrides = null;
   window._toolSel = null;
   window._menuInfo = null;
+  window._menuTable = null;
 });
 
 // 內建規範明細（頁面載入即渲染）
