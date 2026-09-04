@@ -2011,6 +2011,30 @@ function sanitizeLabel(s) {
 }
 
 // 明確欄位定義表：「欄位名稱 | 欄位說明」後接 [field] | 中文說明（取第一組 = 主表）
+// 一個分頁裡可能描述多個頁籤/區塊（各自一張欄位對照表）。目前一個分頁只會產出第一組，
+// 其餘會被靜默丟掉——這裡把它們找出來，至少讓使用者知道有東西沒被產出。
+function findExtraSections(text) {
+  const lines = String(text || '').split(/\r?\n/);
+  const LABEL_RE = /^(畫面欄位|顯示欄位|表格欄位|欄位名稱|欄位)$/;
+  const DB_RE = /^(對應資料表欄位|對應欄位|資料表欄位|對應DB欄位|DB欄位|實際欄位)$/;
+  const heads = [];
+  lines.forEach((l, i) => {
+    const segs = l.split('|').map(s => s.trim());
+    if (segs.some(s => LABEL_RE.test(s)) && segs.some(s => DB_RE.test(s))) heads.push(i);
+  });
+  if (heads.length < 2) return [];
+  // 每張表往前找最近的區塊標題（▍頁籤 X／… 這類）當名稱
+  return heads.slice(1).map(h => {
+    for (let j = h; j >= 0 && j > h - 25; j--) {
+      const t = lines[j].replace(/\|/g, ' ').trim();
+      if (/^[▍■▌]/.test(t) || /頁籤\s*\d/.test(t)) {
+        return t.replace(/^[▍■▌\s]+/, '').slice(0, 30);
+      }
+    }
+    return '第 ' + (heads.indexOf(h) + 1) + ' 組欄位對照表';
+  });
+}
+
 // 對照表型欄位定義：「畫面欄位 | 規則/說明 | 對應資料表欄位」
 // 真實 DB 欄名在另一欄（不一定是第一欄），沒支援的話只能靠字典猜英文欄名，
 // 而設定檔的 Field 必須等於真實 DB 欄位，猜錯該欄就查不到資料。
@@ -2262,7 +2286,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-09-04b';
+const APP_BUILD = '2026-09-04c';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-09-01';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-09-03';
@@ -2446,10 +2470,11 @@ function cfgTokens(s) {
   return String(s || '').replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .split(/[^A-Za-z0-9]+/).filter(Boolean).map(t => t.toLowerCase());
 }
-const CFG_NUM_TOKENS = ['amount','count','money','win','bet','value','total','odds','max','min','qty','num','score','sum','balance','price','rate','fee','point'];
+const CFG_NUM_TOKENS = ['amount','count','money','win','bet','value','total','odds','max','min','qty','num','score','sum','balance','price','rate','fee','point','quota','threshold','cap','remain'];
 function cfgIsNumeric(p) {
   const zh = p.col || '';
-  if (/金額|數量|次數|得分|押注|贏分|上限|下限|倍率|點數|餘額/.test(zh)) return true;
+  // 額度／門檻／餘數 也是數量——少了它們會出現「額度異動沒有千分位、額度餘額有」這種同表不一致
+  if (/金額|數量|次數|得分|押注|贏分|上限|下限|倍率|點數|餘額|額度|門檻|餘數/.test(zh)) return true;
   const tk = cfgTokens(p.dbName || p.col);
   if (!tk.length) return false;
   // 識別碼（結尾 id / no / code / key）不是數量，不加千分位
@@ -2562,6 +2587,15 @@ function buildQueryToolConfig(state, tool) {
   if (todoFields.length) {
     todos.push(`<b>顯示欄位</b>：<code>${todoFields.map(escapeHtml).join('</code>／<code>')}</code> 這 ${todoFields.length} 欄，規格書沒寫真實 DB 欄位名，已標成 <code>TODO_待確認欄位_*</code>。<b>匯入前一定要改成真實欄位名</b>，否則該欄查不到資料（可用上方「✏️ 欄位確認/修改」直接填）`);
   }
+  // 同一分頁裡的其他頁籤/區塊目前不會產出，明講出來，不要讓它悄悄消失
+  const extras = findExtraSections(text);
+  if (extras.length) {
+    todos.push(`<b>⚠️ 這個分頁還有 ${extras.length} 組欄位對照表沒有被產出</b>：<code>${extras.map(escapeHtml).join('</code>／<code>')}</code>。`
+      + '工具目前一個分頁只產出第一組；這些通常是<b>另一個頁籤</b>，往往有自己的資料表與欄位（可能還需要跨表關聯），'
+      + '請確認是否也要做成工具——需要的話得另外處理，不要以為這份設定檔已經涵蓋整份規格書');
+    rows.push(['其他頁籤/區塊', extras.map(escapeHtml).join('、'), 'warn', '未產出，需另外確認']);
+  }
+
   if (!viewData.length) {
     todos.push('<b>ViewDataSetting</b>：規格書沒抓到任何欄位定義，設定檔的顯示欄位為空，必須手動補');
     rows.push(['顯示欄位', 'ViewDataSetting=<code>[]</code>', 'warn', '規格書無欄位定義表']);
