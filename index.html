@@ -548,6 +548,24 @@ body {
 .cfg-picker .cp-head { font-weight: 700; margin-bottom: 3px; }
 .cp-count { color: var(--accent); font-size: 1.05rem; }
 .cp-blocked { color: var(--warn); font-weight: 600; }
+.cp-row.blocked { background: color-mix(in srgb, var(--bad) 7%, transparent); }
+.cfg-menu {
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface2);
+  padding: 11px 13px; margin-bottom: 12px; font-size: 0.78rem;
+}
+.cfg-menu:empty { display: none; }
+.mn-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.mn-name { font-weight: 600; min-width: 150px; }
+.mn-path {
+  flex: 1; min-width: 240px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 9px; color: var(--text); font-size: 0.77rem;
+}
+.mn-path:focus, .mn-no:focus { outline: none; border-color: var(--accent); }
+.mn-lbl { font-size: 0.72rem; color: var(--text2); }
+.mn-no {
+  width: 80px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 8px; color: var(--text); font-size: 0.77rem;
+}
 .cp-sub-inline { font-weight: 400; font-size: 0.73rem; color: var(--text2); margin-left: 6px; }
 .cfg-picker .cp-sub { font-size: 0.73rem; color: var(--text2); margin-bottom: 9px; line-height: 1.55; }
 .cp-row {
@@ -772,6 +790,8 @@ body {
   <div id="cfgResult" style="display:none;">
     <!-- 要產出哪些分頁 -->
     <div class="cfg-picker" id="cfgPicker"></div>
+    <!-- 選單位置 -->
+    <div class="cfg-menu" id="cfgMenu"></div>
     <!-- 驗證結果 -->
     <div class="cfg-verdict" id="cfgVerdict"></div>
     <!-- 待確認清單 -->
@@ -1772,6 +1792,7 @@ async function processFile(file) {
     window._activeToolIdx = 0;      // 新文件從第一個工具開始
     window._fieldOverrides = null;  // 舊文件的欄位覆寫不得沿用（同名分頁會誤套）
     window._toolSel = null;         // 換文件 → 分頁勾選重新依內容判斷
+    window._menuInfo = null;        // 換文件 → 選單位置重新從規格書取
 
     // 顯示生成前端介面區（移到成功路徑末尾）
     const aiSection = document.getElementById('aiSection');
@@ -2400,7 +2421,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-09-04f';
+const APP_BUILD = '2026-09-04g';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-09-01';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-09-03';
@@ -2673,9 +2694,22 @@ function buildQueryToolConfig(state, tool) {
     rows.push(['瀏覽權限', `BrowseAuthority=<code>${escapeHtml(authority)}</code>`, 'warn', auth.note]);
   }
 
-  // 4) 選單位置
-  const menuNo = 0;
-  todos.push('<b>MenuNo</b>：選單節點編號填 <code>0</code>，需工程師對照 <code>SYSTEM_ToolMenu</code> 換成真實編號（或改用 wizard 格式連選單一起新建）');
+  // 4) 選單位置：路徑從規格書帶出來，MenuNo 由使用者填（API 只吃數字）
+  const mKey = overrideKey(tool);
+  const mi = (window._menuInfo = window._menuInfo || {});
+  if (!mi[mKey]) mi[mKey] = { path: extractMenuPath(text, state.flatText), menuNo: 0 };
+  const menuPath = mi[mKey].path || '';
+  const menuNo = mi[mKey].menuNo || 0;
+  if (menuNo > 0) {
+    rows.push(['選單位置', `MenuNo=<code>${menuNo}</code>` + (menuPath ? '（' + escapeHtml(menuPath) + '）' : ''), 'ok', '已指定節點編號']);
+  } else if (menuPath) {
+    todos.push(`<b>選單位置</b>：規格書寫的是「<b>${escapeHtml(menuPath)}</b>」，但匯入檔只能填數字 <code>MenuNo</code>。`
+      + '請工程師把這個路徑對照 <code>SYSTEM_ToolMenu</code> 換成節點編號（或在後台「新增自動化工具」頁面的「選單位置」直接貼這串路徑，系統會自動建缺少的資料夾）');
+    rows.push(['選單位置', escapeHtml(menuPath), 'warn', '已從規格書取得，待換成 MenuNo']);
+  } else {
+    todos.push('<b>選單位置</b>：規格書沒寫工具要放在哪個選單，<code>MenuNo</code> 先填 <code>0</code>，請補上位置再交給工程師');
+    rows.push(['選單位置', 'MenuNo=<code>0</code>', 'warn', '規格書未寫，需補']);
+  }
 
   // 5) 顯示欄位
   const used = new Set();
@@ -2908,6 +2942,63 @@ function buildToolCandidates(state) {
   return all.length ? all : extractTools(state);
 }
 
+// ── 選單位置（工具要掛在後台選單的哪個路徑）──
+// 匯入 API 只吃數字 MenuNo，沒有路徑欄位；但規格書幾乎都寫了路徑，
+// 抓出來讓企劃確認並帶進交付說明，工程師才不用回頭翻規格書。
+function extractMenuPath(text, fallbackText) {
+  const SEP = /[→>＞»›→]/;
+  const scan = (t) => {
+    for (const raw of String(t || '').split(/\r?\n/)) {
+      if (!/選單|路徑|工具位置/.test(raw)) continue;
+      for (const seg of raw.split('|')) {
+        const s = seg.trim();
+        if (!SEP.test(s)) continue;
+        // 去掉「新增路徑：」「後端工具選單(新增)」這類前綴
+        const cleaned = s.replace(/^.*?(?:路徑|選單)\s*[（(][^）)]*[）)]?\s*[:：]?\s*/, '')
+                         .replace(/^.*?[:：]\s*/, '').trim();
+        const parts = (cleaned || s).split(SEP).map(x => x.trim()).filter(Boolean);
+        if (parts.length >= 2) return parts.join(' > ');
+      }
+    }
+    return null;
+  };
+  return scan(text) || scan(fallbackText) || '';
+}
+function menuInfo(tool) {
+  const k = overrideKey(tool);
+  return (window._menuInfo = window._menuInfo || {})[k] || null;
+}
+function setMenuInfo(k, field, val) {
+  const m = (window._menuInfo = window._menuInfo || {});
+  m[k] = m[k] || { path: '', menuNo: 0 };
+  m[k][field] = field === 'menuNo' ? (parseInt(val, 10) || 0) : val;
+  runConfigGeneration();
+}
+
+function renderMenuEditor(pickedTools, state) {
+  const el = document.getElementById('cfgMenu');
+  if (!el) return;
+  if (!pickedTools.length) { el.innerHTML = ''; return; }
+  el.innerHTML =
+    '<div class="cp-head">📍 選單位置（工具要掛在後台選單的哪裡）</div>'
+    + '<div class="cp-sub">已從規格書自動帶入，可直接改。<b>匯入檔只能填數字 MenuNo</b>（後台選單節點編號），所以路徑會寫進交付說明給工程師；'
+    + '若你已經知道節點編號，直接填在右邊，就不用再標待確認。</div>'
+    + pickedTools.map(t => {
+        const k = overrideKey(t);
+        const mi = (window._menuInfo || {})[k] || {};
+        return `<div class="mn-row">
+          <span class="mn-name">${escapeHtml(t.name)}</span>
+          <input class="mn-path" type="text" placeholder="如：遊戲工具 > 大滿貫 > 設定工具 > 活動類相關設定"
+                 value="${escapeHtml(mi.path || '')}"
+                 onchange="setMenuInfo('${escapeHtml(k).replace(/'/g, "\\'")}','path',this.value)">
+          <span class="mn-lbl">MenuNo</span>
+          <input class="mn-no" type="number" min="0" placeholder="0"
+                 value="${mi.menuNo || ''}"
+                 onchange="setMenuInfo('${escapeHtml(k).replace(/'/g, "\\'")}','menuNo',this.value)">
+        </div>`;
+      }).join('');
+}
+
 // 判斷某個候選像不像「真的查詢工具」
 function assessTool(state, tool) {
   const text = (tool && tool.flatText) || state.flatText || '';
@@ -2928,9 +3019,11 @@ function assessTool(state, tool) {
   return { level: 'no', badge: '不像工具', why: '沒有資料表位置、也沒有欄位定義表 → 多半是總覽／結構說明頁，不是查詢工具' };
 }
 
-function renderToolPicker(tools, assess, outCount, anyOk, checkedCount) {
+function renderToolPicker(tools, assess, outCount, anyOk, checkedCount, blocked) {
   const el = document.getElementById('cfgPicker');
   if (!el) return;
+  const blockMap = {};
+  (blocked || []).forEach(b => { blockMap[b.name] = b.why; });
   const pickedCount = checkedCount == null ? outCount : checkedCount;
   const blockedNote = (checkedCount != null && checkedCount > outCount)
     ? `<span class="cp-blocked">，其中 ${checkedCount - outCount} 個因無法匯入被擋下</span>` : '';
@@ -2943,12 +3036,15 @@ function renderToolPicker(tools, assess, outCount, anyOk, checkedCount) {
     `<div class="cp-sub">${sub}</div>` +
     tools.map((t, i) => {
       const a = assess[i], on = !!window._toolSel[i];
-      return `<label class="cp-row${on ? '' : ' off'}">
+      const why = blockMap[t.name];              // 勾了但寫不進檔案的，要在該列直接說明原因
+      return `<label class="cp-row${on ? '' : ' off'}${why ? ' blocked' : ''}">
         <input type="checkbox" ${on ? 'checked' : ''} onchange="toggleToolPick(${i}, this.checked)">
         <span class="cp-body">
           <span class="cp-name">${escapeHtml(t.name)}</span>${t.isSection && t.sheetName && t.sheetName !== t.name
-            ? `<span class="cp-src">（${escapeHtml(t.sheetName)} 分頁）</span>` : ''}<span class="cp-badge ${a.level}">${a.badge}</span>
-          <span class="cp-why">${escapeHtml(a.why)}</span>
+            ? `<span class="cp-src">（${escapeHtml(t.sheetName)} 分頁）</span>` : ''}<span class="cp-badge ${why ? 'no' : a.level}">${why ? '已擋下，未寫入檔案' : a.badge}</span>
+          <span class="cp-why">${why
+            ? '<b>擋下原因：' + escapeHtml(why) + '</b> — 匯入後每一欄都查不到資料。若確定要做這個工具，請用上方「✏️ 欄位確認/修改」填入真實 DB 欄位名，填完就會解除。'
+            : escapeHtml(a.why)}</span>
         </span>
       </label>`;
     }).join('') +
@@ -3067,7 +3163,8 @@ function runConfigGeneration() {
       .concat(blocked.map(b => b.name + '（無法匯入：' + b.why + '）')),
   };
   // 勾選面板的數字要跟實際寫進檔案的一致（擋掉的不算）
-  renderToolPicker(tools, assess, window._cfgOut.toolCount, assess.some(a => a.level === 'ok'), picked.length);
+  renderToolPicker(tools, assess, window._cfgOut.toolCount, assess.some(a => a.level === 'ok'), picked.length, blocked);
+  renderMenuEditor(pickedTools, state);
 
   document.getElementById('cfgBadge').textContent = wizard ? 'query-tool/wizard（單一物件）' : 'query-tool/import（陣列）';
 
@@ -3148,6 +3245,14 @@ function downloadChecklist() {
     `- 工具數：${o.toolCount}`,
     ...(o.skipped && o.skipped.length ? [`- 未納入的分頁（${o.skipped.length}）：${o.skipped.join('、')}`] : []),
     `- 本機驗證：${o.errors.length ? '❌ ' + o.errors.length + ' 項錯誤' : '✅ 通過'}`,
+    '', '## 選單位置（工具要掛在後台選單的哪裡）', '',
+    '| 工具 | 選單位置 | MenuNo |', '|---|---|---|',
+    ...o.items.map((it, i) => {
+      const mi = (window._menuInfo || {})[overrideKey((window._tools || []).find(t => t.name === it.ToolName) || null)] || {};
+      return `| ${it.ToolName} | ${mi.path || '⚠️ 規格書未寫，需補'} | ${it.MenuNo > 0 ? it.MenuNo : '⚠️ 待對照 SYSTEM_ToolMenu'} |`;
+    }),
+    '',
+    '> 匯入 API 只接受數字 `MenuNo`。若還沒有編號，可在後台「新增自動化工具」頁面的「選單位置」直接貼上上表路徑——系統會逐段比對，已存在的沿用、不存在的自動建立。',
     '', '## 對照表', '',
     '| 規格文件項目 | 對應設定 | 狀態 | 說明 |', '|---|---|---|---|',
     ...o.rows.filter(r => r[1] !== '').map(r => `| ${strip(r[0])} | ${strip(r[1])} | ${r[2] === 'ok' ? '✅' : '⚠️'} | ${strip(r[3])} |`),
@@ -3241,6 +3346,7 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   document.getElementById('fieldEditor').style.display = 'none';
   window._fieldOverrides = null;
   window._toolSel = null;
+  window._menuInfo = null;
 });
 
 // 內建規範明細（頁面載入即渲染）
