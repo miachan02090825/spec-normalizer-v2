@@ -557,6 +557,7 @@ body {
 .cp-row input[type="checkbox"] { width: 15px; height: 15px; margin-top: 2px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
 .cp-body { flex: 1; min-width: 0; }
 .cp-name { font-weight: 600; }
+.cp-src { font-size: 0.72rem; color: var(--text2); margin-left: 5px; }
 .cp-why { font-size: 0.72rem; color: var(--text2); margin-top: 2px; line-height: 1.5; }
 .cp-badge {
   font-size: 0.66rem; font-weight: 700; padding: 1px 7px; border-radius: 20px; margin-left: 7px;
@@ -1985,6 +1986,103 @@ const COL_WORD_DICT = [
 ];
 
 // ─── 多工具拆分：xlsx 每個「顯示」分頁 = 一個工具 ────────────────────────────
+// ── 以「資料表＋欄位對照表」為單位切出工具，而不是一個分頁配一個工具 ──
+// 一個分頁可能是總覽頁（0 個工具）、也可能同時描述好幾個頁籤（N 個工具）。
+// 硬要一分頁一工具，總覽頁會被拿選單路徑湊成假欄位，多頁籤的第 2 個則整個消失。
+// 欄位表的表頭有兩種：對照型（畫面欄位…對應資料表欄位）與直式（欄位名稱｜欄位說明/用途）。
+// 「畫面欄位｜說明」是查詢條件表，不是欄位表——把它算進來會把一個分頁切得七零八落。
+const FT_VIEW_RE = /^(畫面欄位|顯示欄位|表格欄位)$/;
+const FT_MAP_RE  = /^(對應資料表欄位|對應欄位|資料表欄位|對應DB欄位|DB欄位|實際欄位)$/;
+const FT_NAME_RE = /^欄位名稱$/;
+const FT_DESC_RE = /^(欄位說明|用途)$/;
+function isFieldTableHeader(segs) {
+  const has = re => segs.some(s => re.test(s));
+  return (has(FT_VIEW_RE) && has(FT_MAP_RE)) || (has(FT_NAME_RE) && (has(FT_DESC_RE) || has(FT_MAP_RE)));
+}
+const SECTION_MARK = /^[▍■▌◆●]|頁籤\s*\d|^Tab\s*\d/i;
+const TABLE_LINE = /\[(\w+)\]\s*\.\s*\[(\w+)\]\s*\.\s*\[(\w+)\]/;
+
+// 整份文件出現過的三段式表名，供跨分頁補完（例：頁籤2 只寫 PlayerData，表名在總覽頁）
+function docTableRefs(state) {
+  const out = [];
+  const re = /\[(\w+)\]\s*\.\s*\[(\w+)\]\s*\.\s*\[(\w+)\]/g;
+  let m;
+  while ((m = re.exec(state.flatText || '')) !== null) {
+    if (!out.some(x => x.table === m[3])) out.push({ db: m[1], schema: m[2], table: m[3] });
+  }
+  return out;
+}
+
+function extractToolSections(state) {
+  const p = state.parsed;
+  if (!(p && p.type === 'xlsx' && p.sheets)) return [];
+  const refs = docTableRefs(state);
+  const sections = [];
+
+  for (const [sheetName, rows] of Object.entries(p.sheets)) {
+    const lines = rows.map(r => r.join(' | '));
+    // 找出這個分頁裡所有「欄位對照表」的表頭列
+    const heads = [];
+    lines.forEach((l, i) => {
+      const segs = l.split('|').map(s => s.trim()).filter(Boolean);
+      if (isFieldTableHeader(segs)) heads.push(i);
+    });
+    if (!heads.length) continue;   // 沒有欄位對照表 → 這個分頁不產出工具
+
+    // 每張表往前找錨點（頁籤標題／資料表位置），把它們一起劃進該段
+    const starts = heads.map((h, k) => {
+      const low = k === 0 ? 0 : heads[k - 1] + 1;
+      let start = h;
+      for (let j = h - 1; j >= low; j--) {
+        const t = lines[j].replace(/\|/g, ' ').trim();
+        if (SECTION_MARK.test(t) || TABLE_LINE.test(lines[j]) || /資料表位置|資料來源|資料表：/.test(t)) start = j;
+      }
+      return start;
+    });
+
+    heads.forEach((h, k) => {
+      const from = starts[k];
+      const to = k + 1 < heads.length ? starts[k + 1] : lines.length;
+      const slice = lines.slice(from, to);
+      // 段內常有備註順帶提到別張表（「參考 [...].[AIO_Super8_UserValue_Go]」），
+      // 主表要取「離表頭最近的那一個」表名，否則會配到隔壁表。
+      let near = null;
+      for (let j = h - 1; j >= from; j--) {
+        const m2 = lines[j].match(TABLE_LINE);
+        if (m2) { near = m2; break; }
+      }
+      const text = (near ? '資料表：[' + near[1] + '].[' + near[2] + '].[' + near[3] + ']\n' : '')
+        + slice.join('\n');
+      // 名稱：優先用頁籤標題，否則用分頁名（同分頁多段時加序號）
+      const markLine = slice.find(l => SECTION_MARK.test(l.replace(/\|/g, ' ').trim()));
+      const baseSheet = sanitizeLabel(sheetName.replace(/^[（(][^（()）]*[）)]/, '')) || sanitizeLabel(sheetName) || 'Tool';
+      let name = markLine
+        ? sanitizeLabel(markLine.replace(/\|/g, ' ').replace(/^[▍■▌◆●\s]+/, '').trim())
+        : (heads.length > 1 ? baseSheet + '-' + (k + 1) : baseSheet);
+      if (!name) name = baseSheet;
+
+      // 段內沒有三段式表名時，從段內提到的表名（如「資料來源：PlayerData」或 PlayerData.xxx）跨分頁補
+      // 段內提到好幾張表時（頁籤2 同時提到 PlayerData／VipThresholdSetting／Setting），
+      // 取出現次數最多的那張當主表，而不是第一個掃到的——後者會挑到只出現一次的關聯表。
+      let hint = null;
+      if (!TABLE_LINE.test(text)) {
+        let best = 0;
+        for (const r of refs) {
+          const short = r.table.replace(/^.*?_/, '');
+          const count = (nm) => nm.length > 3
+            ? (text.match(new RegExp('(^|[^A-Za-z0-9_])' + nm + '([^A-Za-z0-9_]|$)', 'g')) || []).length : 0;
+          const n = count(r.table) * 2 + count(short);
+          if (n > best) { best = n; hint = r; }
+        }
+      }
+      sections.push({ name, sheetName, flatText: hint
+        ? '資料表：[' + hint.db + '].[' + hint.schema + '].[' + hint.table + ']\n' + text
+        : text, isSection: true });
+    });
+  }
+  return sections;
+}
+
 function extractTools(state) {
   const p = state.parsed;
   const tools = [];
@@ -2061,8 +2159,12 @@ function extractMappedFieldPairs(text) {
       if (!label && !db) { if (++miss >= 3) break; continue; }
       if (LABEL_RE.test(label)) break;                    // 下一張表的表頭
       // 衍生欄／查詢層計算／註明不顯示的，都不是可查的 DB 欄位
-      if (!db || /查詢層計算|衍生|非\s*DB/.test(db) || /不顯示/.test(label)) { miss = 0; continue; }
-      const dbs  = db.split(/\s*[\/／]\s*/).map(s => s.trim()).filter(isIdent);
+      if (!db || /查詢層計算|衍生|非\s*DB|外部系統|待確認/.test(db) || /不顯示/.test(label)) { miss = 0; continue; }
+      // 有些規格書寫成 Table.column（如 PlayerData.totalPoints）→ 取欄位本體，
+      // 表名不同的留給第 8 步判斷是否需要跨表關聯
+      const dbs  = db.split(/\s*[\/／]\s*/).map(s => s.trim())
+        .map(s => { const m2 = s.match(/^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/); return m2 ? m2[2] : s; })
+        .filter(isIdent);
       const labs = label.split(/\s*[\/／]\s*/).map(s => s.trim()).filter(Boolean);
       if (!dbs.length) { miss = 0; continue; }
       if (dbs.length > 1 && labs.length === dbs.length) {
@@ -2087,7 +2189,8 @@ function extractFieldPairs(text) {
   let miss = 0;
   for (const raw of lines) {
     const line = raw.trim();
-    const isFieldHeader = line.includes('欄位名稱') && line.includes('欄位說明');
+    // 說明欄的表頭不是只有「欄位說明」一種寫法（星超8 用「用途」），差一個詞整張表就抓不到
+    const isFieldHeader = line.includes('欄位名稱') && /欄位說明|用途|說明|描述/.test(line);
     if (!inTable) {
       if (isFieldHeader) inTable = true;
       continue;
@@ -2286,7 +2389,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-09-04c';
+const APP_BUILD = '2026-09-04d';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-09-01';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-09-03';
@@ -2536,6 +2639,18 @@ function buildQueryToolConfig(state, tool) {
   if (hasTable) rows.push([`資料表 <code>${escapeHtml(meta.table)}</code>`, 'MainTable', 'ok', '規格書有三段式表名']);
   else { todos.push('<b>MainTable</b>：規格書沒有寫出資料表名稱，需補'); rows.push(['資料表', 'MainTable=<code>TODO_未指定資料表</code>', 'warn', '規格書未寫']); }
 
+  // 2.5) 欄位若來自多張表（Table.column 形式且表名不是主表）→ 需要 RelatedTableSetting，本工具不產
+  const qualifiers = Array.from(new Set(
+    (text.match(/\b([A-Za-z_][A-Za-z0-9_]*)\.[A-Za-z_][A-Za-z0-9_]*/g) || [])
+      .map(s => s.split('.')[0])
+  )).filter(q => q !== mainTable && !/^(dbo|www|https?|com|tw)$/i.test(q)
+                 && !new RegExp(q + '$', 'i').test(mainTable));
+  if (qualifiers.length) {
+    todos.push(`<b>跨表欄位</b>：這個工具有欄位來自 <code>${qualifiers.map(escapeHtml).join('</code>／<code>')}</code>，不是主表 <code>${escapeHtml(mainTable)}</code>。`
+      + '這需要 <code>RelatedTableSetting</code> 關聯設定（或改用 <code>CUSTOM_SQL</code>），<b>本工具不會產生關聯設定</b>，請工程師補上，否則這些欄位查不到資料');
+    rows.push(['跨表欄位', qualifiers.map(escapeHtml).join('、'), 'warn', '需 RelatedTableSetting，本工具未產生']);
+  }
+
   // 3) 權限字串（依 known-browse-authority-snapshot 推薦，但角色範圍仍要人工確認）
   const auth = inferBrowseAuthority(mainConnection);
   const authority = auth.value;
@@ -2772,12 +2887,27 @@ function validateConfig(items) {
 }
 
 // ── 產生 + 呈現 ──
-// 判斷某個分頁像不像「真的查詢工具」：有沒有資料表、欄位是明確定義還是猜的
+// 產出候選工具清單：以「欄位對照表」為單位切段；沒有切出任何段的分頁才退回整頁當候選
+function buildToolCandidates(state) {
+  const sections = extractToolSections(state);
+  const covered = new Set(sections.map(s => s.sheetName));
+  const rest = extractTools(state).filter(t => !covered.has(t.sheetName));
+  const all = sections.concat(rest);
+  // 整份文件都切不出段（例如欄位寫成橫式示意圖）→ 全部退回分頁層級，至少還有東西可用
+  return all.length ? all : extractTools(state);
+}
+
+// 判斷某個候選像不像「真的查詢工具」
 function assessTool(state, tool) {
   const text = (tool && tool.flatText) || state.flatText || '';
   const hasTable = /\[\w+\]\s*\.\s*\[\w+\]\s*\.\s*\[\w+\]/.test(text);
   const src = extractFieldPairs(text).length >= 3 ? 'table'
             : extractMappedFieldPairs(text).length >= 3 ? 'mapped' : 'guess';
+  if (tool && tool.isSection && src !== 'guess') {
+    return hasTable
+      ? { level: 'ok', badge: '可產出', why: '有資料表位置，且欄位取自規格書的' + (src === 'table' ? '欄位定義表' : '欄位對照表') }
+      : { level: 'weak', badge: '缺資料表', why: '欄位取自規格書的對照表，但找不到對應的資料表名稱，需補 MainTable' };
+  }
   if (hasTable && src !== 'guess') {
     return { level: 'ok', badge: '可產出', why: '有資料表位置，且欄位取自規格書的' + (src === 'table' ? '欄位定義表' : '欄位對照表') };
   }
@@ -2801,7 +2931,8 @@ function renderToolPicker(tools, assess, pickedCount, anyOk) {
       return `<label class="cp-row${on ? '' : ' off'}">
         <input type="checkbox" ${on ? 'checked' : ''} onchange="toggleToolPick(${i}, this.checked)">
         <span class="cp-body">
-          <span class="cp-name">${escapeHtml(t.sheetName || t.name)}</span><span class="cp-badge ${a.level}">${a.badge}</span>
+          <span class="cp-name">${escapeHtml(t.name)}</span>${t.isSection && t.sheetName && t.sheetName !== t.name
+            ? `<span class="cp-src">（${escapeHtml(t.sheetName)} 分頁）</span>` : ''}<span class="cp-badge ${a.level}">${a.badge}</span>
           <span class="cp-why">${escapeHtml(a.why)}</span>
         </span>
       </label>`;
@@ -2827,7 +2958,7 @@ function runConfigGeneration() {
   const miss = missingSteps();
   if (miss.length) { showError('請先完成：' + miss.join('、')); return; }
   const state = window._lastState;
-  const tools = extractTools(state);
+  const tools = buildToolCandidates(state);
   window._tools = tools;
   if (window._activeToolIdx == null || window._activeToolIdx >= tools.length) window._activeToolIdx = 0;
   const wizard = document.getElementById('cfgWizardMode').checked;
