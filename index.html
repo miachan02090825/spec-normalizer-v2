@@ -546,6 +546,8 @@ body {
   background: var(--surface2); padding: 11px 13px; margin-bottom: 12px; font-size: 0.78rem;
 }
 .cfg-picker .cp-head { font-weight: 700; margin-bottom: 3px; }
+.cp-count { color: var(--accent); font-size: 1.05rem; }
+.cp-sub-inline { font-weight: 400; font-size: 0.73rem; color: var(--text2); margin-left: 6px; }
 .cfg-picker .cp-sub { font-size: 0.73rem; color: var(--text2); margin-bottom: 9px; line-height: 1.55; }
 .cp-row {
   display: flex; align-items: flex-start; gap: 9px;
@@ -2389,7 +2391,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-09-04d';
+const APP_BUILD = '2026-09-04e';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-09-01';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-09-03';
@@ -2921,10 +2923,11 @@ function renderToolPicker(tools, assess, pickedCount, anyOk) {
   const el = document.getElementById('cfgPicker');
   if (!el) return;
   const sub = anyOk
-    ? '預設只勾選「欄位有明確定義」的分頁。總覽頁、結構說明頁這類不是查詢工具的分頁，硬產出會變成壞掉的工具，已先不勾。'
-    : '這份文件沒有任何分頁找得到欄位定義表，所以全部先勾起來——請自行取消不需要的分頁。';
+    ? '一個 Excel 分頁可能是總覽頁（0 個工具），也可能描述好幾個頁籤（多個工具），所以是以「欄位對照表」為單位切的。預設只勾「欄位有明確定義」的，總覽頁／結構說明頁硬產出會變成壞掉的工具，已先不勾。'
+    : '這份文件找不到任何欄位定義表，所以全部先勾起來——請自行取消不需要的。';
   el.innerHTML =
-    `<div class="cp-head">📄 要產出哪些分頁？（已勾 ${pickedCount} / ${tools.length}）</div>` +
+    `<div class="cp-head">📄 這份規格書會產出 <b class="cp-count">${pickedCount}</b> 個工具`
+    + `<span class="cp-sub-inline">（下方 ${tools.length} 個候選中已勾選 ${pickedCount} 個）</span></div>` +
     `<div class="cp-sub">${sub}</div>` +
     tools.map((t, i) => {
       const a = assess[i], on = !!window._toolSel[i];
@@ -3012,10 +3015,16 @@ function runConfigGeneration() {
   // wizard 為單一物件 + MenuParentNo；import 為陣列
   let payload;
   if (wizard) {
+    // wizard 端點吃單一物件，不是陣列 → 一次只能建一個工具
     const one = Object.assign({}, items[0]);
     delete one.IndexNo; delete one.InvalidFlag; delete one.MenuNo;
     one.MenuParentNo = 0;
     payload = one;
+    if (items.length > 1) {
+      warns.push(`wizard 格式一次只能建立一個工具，本次只會輸出「${items[0].ToolName}」，`
+        + `其餘 ${items.length - 1} 個（${items.slice(1).map(i => i.ToolName).join('、')}）不會在檔案裡`
+        + '——要一次全部建立請改用 import 格式');
+    }
   } else {
     payload = items;
   }
@@ -3037,7 +3046,8 @@ function runConfigGeneration() {
     v.innerHTML = `❌ 本機驗證未通過（${errors.length} 項）<ul>${errors.map(e => '<li>' + escapeHtml(e) + '</li>').join('')}</ul>`;
   } else {
     v.className = 'cfg-verdict ok';
-    v.innerHTML = `✅ 本機驗證通過 — Field 唯一性、Transform／Operator 白名單、CustomSql 黑名單、ExportRequiredField 一致性皆無誤`
+    v.innerHTML = `✅ 本機驗證通過 · 本檔含 <b>${wizard ? 1 : items.length}</b> 個工具（${(wizard ? items.slice(0, 1) : items).map(i => escapeHtml(i.ToolName)).join('、')}）`
+      + `<div style="font-weight:400;margin-top:4px;">Field 唯一性、Transform／Operator 白名單、CustomSql 黑名單、ExportRequiredField 一致性皆無誤</div>`
       + (warns.length ? `<ul>${warns.map(w => '<li>⚠️ ' + escapeHtml(w) + '</li>').join('')}</ul>` : '')
       + `<div style="font-weight:400;margin-top:6px;">此驗證只涵蓋「格式與白名單」，<b>不含 DB 連線可達性、欄位是否真實存在、唯一索引</b>——請工程師先匯入 Dev 實跑一次再上線。</div>`;
   }
@@ -3054,7 +3064,10 @@ function runConfigGeneration() {
       : `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="st-${r[2]}">${r[2] === 'ok' ? '✅' : '⚠️ 待確認'}</td><td>${r[3]}</td></tr>`).join('');
 
   document.getElementById('cfgJson').textContent = JSON.stringify(payload, null, 2);
-  document.getElementById('dlCfgBtn').style.display = 'inline-block';
+  const dl = document.getElementById('dlCfgBtn');
+  const outCount = wizard ? 1 : items.length;   // wizard 只輸出一個
+  dl.style.display = 'inline-block';
+  dl.textContent = '⬇ 下載設定檔 JSON（' + outCount + ' 個工具）';
   document.getElementById('dlChecklistBtn').style.display = 'inline-block';
   showToast(errors.length ? '⚠️ 設定檔已產生，但驗證有錯' : '⚙️ 設定檔已產生並通過本機驗證');
 }
