@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- GitHub Pages 預設快取 10 分鐘，會讓人拿舊版產設定檔（已實際發生過）→ 每次開都重新驗證 -->
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <title>規格文件標準化工具</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -519,6 +522,11 @@ body {
   padding: 0 4px; font-size: 0.72rem;
 }
 .fe-zone .skill-icon { opacity: 1; }
+.build-tag {
+  margin-left: 9px; font-size: 0.68rem; font-weight: 600;
+  color: var(--text2); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 20px; padding: 1px 8px;
+}
 .skill-zone.builtin { cursor: default; }
 .skill-zone.builtin:hover { border-color: var(--border); background: var(--surface2); }
 .fe-rules {
@@ -679,7 +687,7 @@ body {
   <!-- 內建規範（原 skill 包已內建，不需每次放入） -->
   <div class="skill-zone builtin" id="builtinRules">
     <div class="skill-loaded-head" style="margin-bottom:8px;">
-      <span>🧩 已內建規範：<b>query-tool-config-generator</b></span>
+      <span>🧩 已內建規範：<b>query-tool-config-generator</b><span class="build-tag" id="buildTag"></span></span>
       <button class="skill-remove" onclick="document.getElementById('feRules').classList.toggle('open')">▾ 規範明細</button>
     </div>
     <div class="skill-chips" id="skillChips"></div>
@@ -2253,6 +2261,8 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 // 來源：SKILL.md / references/schema.md / references/known-connections-snapshot.md
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
+// 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
+const APP_BUILD = '2026-09-04b';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-09-01';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-09-03';
@@ -2341,6 +2351,8 @@ window._cfgPack = {
 
 function renderBuiltinRules() {
   const p = window._cfgPack;
+  const bt = document.getElementById('buildTag');
+  if (bt) bt.textContent = '版本 ' + APP_BUILD;
   const chips = document.getElementById('skillChips');
   if (chips) chips.innerHTML = [
     '⭐ query-tool-config-generator', '📄 schema 形狀',
@@ -2650,6 +2662,7 @@ function isNotAColumnTitle(s) {
   if (/^\d+$/.test(t)) return true;                              // 純數字
   if (/頁籤|分頁|唯讀|唯讀性|相關設定|路徑|選單|權限|說明$|備註$|注意事項|示意圖|總覽/.test(t)) return true;
   if (/^(遊戲工具|查詢工具|設定工具|後端工具選單|工具入口)$/.test(t)) return true;  // 選單路徑片段
+  if (/查詢工具|設定工具|工具選單/.test(t)) return true;   // 「返利點數 查詢工具」這種選單路徑殘留
   if (t.length > 24) return true;                                // 過長 → 多半是敘述句
   return false;
 }
