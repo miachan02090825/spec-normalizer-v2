@@ -548,6 +548,9 @@ body {
 .cfg-picker .cp-head { font-weight: 700; margin-bottom: 3px; }
 .cp-count { color: var(--accent); font-size: 1.05rem; }
 .cp-blocked { color: var(--warn); font-weight: 600; }
+.cp-others { margin-top: 8px; }
+.cp-others-body { display: none; margin-top: 4px; }
+.cp-others.open .cp-others-body { display: block; }
 .cp-fix {
   display: inline-block; margin-top: 6px; background: var(--accent); color: #fff;
   border: none; border-radius: 6px; padding: 4px 11px;
@@ -2430,7 +2433,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-09-04i';
+const APP_BUILD = '2026-09-04j';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-09-01';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-09-03';
@@ -3077,31 +3080,47 @@ function renderToolPicker(tools, assess, outCount, anyOk, checkedCount, blocked)
   const blockedNote = (checkedCount != null && checkedCount > outCount)
     ? `<span class="cp-blocked">，其中 ${checkedCount - outCount} 個因無法匯入被擋下</span>` : '';
   const sub = anyOk
-    ? '一個 Excel 分頁可能是總覽頁（0 個工具），也可能描述好幾個頁籤（多個工具），所以是以「欄位對照表」為單位切的。預設只勾「欄位有明確定義」的，總覽頁／結構說明頁硬產出會變成壞掉的工具，已先不勾。'
+    ? '一個 Excel 分頁可能是總覽頁（0 個工具），也可能描述好幾個頁籤（多個工具），所以是以「欄位對照表」為單位切的。下面列的是規格書真的有定義欄位的工具。'
     : '這份文件找不到任何欄位定義表，所以全部先勾起來——請自行取消不需要的。';
+  // 只有「可產出」的才是真的工具；其餘（總覽頁、選單規劃頁、結構說明頁）收進摺疊區，
+  // 不要一直擺在清單裡讓人以為漏做了什麼。
+  const isReal = (i) => assess[i].level === 'ok';
+  const anyReal = tools.some((_, i) => isReal(i));
+  const primary = tools.map((t, i) => i).filter(i => !anyReal || isReal(i));
+  const others  = tools.map((t, i) => i).filter(i => anyReal && !isReal(i));
+  const rowHtml = (i) => {
+    const t = tools[i], a = assess[i], on = !!window._toolSel[i];
+    const why = blockMap[t.name];              // 勾了但寫不進檔案的，要在該列直接說明原因
+    return `<label class="cp-row${on ? '' : ' off'}${why ? ' blocked' : ''}">
+      <input type="checkbox" ${on ? 'checked' : ''} onchange="toggleToolPick(${i}, this.checked)">
+      <span class="cp-body">
+        <span class="cp-name">${escapeHtml(t.name)}</span>${t.isSection && t.sheetName && t.sheetName !== t.name
+          ? `<span class="cp-src">（${escapeHtml(t.sheetName)} 分頁）</span>` : ''}<span class="cp-badge ${why ? 'no' : a.level}">${why ? '已擋下，未寫入檔案' : a.badge}</span>
+        <span class="cp-why">${why
+          ? '<b>擋下原因：' + escapeHtml(why) + '</b> — 匯入後每一欄都查不到資料。'
+            + `<button type="button" class="cp-fix" onclick="event.preventDefault();fixToolFields(${i})">✏️ 填入真實欄位名，讓它可以匯出</button>`
+          : escapeHtml(a.why)}</span>
+      </span>
+    </label>`;
+  };
+
   el.innerHTML =
     `<div class="cp-head">📄 這份規格書會產出 <b class="cp-count">${outCount}</b> 個工具`
-    + `<span class="cp-sub-inline">（${tools.length} 個候選中已勾 ${pickedCount} 個${blockedNote}）</span></div>` +
-    `<div class="cp-sub">${sub}</div>` +
-    tools.map((t, i) => {
-      const a = assess[i], on = !!window._toolSel[i];
-      const why = blockMap[t.name];              // 勾了但寫不進檔案的，要在該列直接說明原因
-      return `<label class="cp-row${on ? '' : ' off'}${why ? ' blocked' : ''}">
-        <input type="checkbox" ${on ? 'checked' : ''} onchange="toggleToolPick(${i}, this.checked)">
-        <span class="cp-body">
-          <span class="cp-name">${escapeHtml(t.name)}</span>${t.isSection && t.sheetName && t.sheetName !== t.name
-            ? `<span class="cp-src">（${escapeHtml(t.sheetName)} 分頁）</span>` : ''}<span class="cp-badge ${why ? 'no' : a.level}">${why ? '已擋下，未寫入檔案' : a.badge}</span>
-          <span class="cp-why">${why
-            ? '<b>擋下原因：' + escapeHtml(why) + '</b> — 匯入後每一欄都查不到資料。'
-              + `<button type="button" class="cp-fix" onclick="event.preventDefault();fixToolFields(${i})">✏️ 填入真實欄位名，讓它可以匯出</button>`
-            : escapeHtml(a.why)}</span>
-        </span>
-      </label>`;
-    }).join('') +
-    `<div class="cp-actions">
-       <button class="cp-mini" onclick="pickAllTools(true)">全選</button>
-       <button class="cp-mini" onclick="pickAllTools(false)">全不選</button>
-     </div>`;
+    + `<span class="cp-sub-inline">（已勾 ${pickedCount} 個${blockedNote}）</span></div>`
+    + `<div class="cp-sub">${sub}</div>`
+    + primary.map(rowHtml).join('')
+    + (others.length
+        ? `<div class="cp-others">
+             <button type="button" class="cp-mini" onclick="this.parentNode.classList.toggle('open')">
+               ▾ 其他 ${others.length} 個分頁（總覽頁／選單規劃／結構說明，不是查詢工具）
+             </button>
+             <div class="cp-others-body">${others.map(rowHtml).join('')}</div>
+           </div>`
+        : '')
+    + `<div class="cp-actions">
+         <button class="cp-mini" onclick="pickAllTools(true)">全選</button>
+         <button class="cp-mini" onclick="pickAllTools(false)">全不選</button>
+       </div>`;
 }
 
 // 從被擋下的那一列直接跳去填欄位（不必自己去上面切工具下拉選單）
