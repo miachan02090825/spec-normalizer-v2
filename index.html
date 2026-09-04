@@ -548,6 +548,12 @@ body {
 .cfg-picker .cp-head { font-weight: 700; margin-bottom: 3px; }
 .cp-count { color: var(--accent); font-size: 1.05rem; }
 .cp-blocked { color: var(--warn); font-weight: 600; }
+.cp-fix {
+  display: inline-block; margin-top: 6px; background: var(--accent); color: #fff;
+  border: none; border-radius: 6px; padding: 4px 11px;
+  font-size: 0.73rem; font-weight: 700; cursor: pointer;
+}
+.cp-fix:hover { filter: brightness(1.08); }
 .cp-row.blocked { background: color-mix(in srgb, var(--bad) 7%, transparent); }
 .cfg-menu {
   border: 1px solid var(--border); border-radius: 8px; background: var(--surface2);
@@ -1960,12 +1966,14 @@ function toggleFieldEditor(show) {
   const tool = tools[window._activeToolIdx || 0];
   const meta = extractSpecMeta(state, tool);
 
-  document.getElementById('feToolName').textContent = tool.name;
+  const invented = meta.fieldSource === 'guess';   // 整組欄名都是字典拼的
+  document.getElementById('feToolName').textContent = tool.name
+    + (invented ? '（DB 欄名都是推測的，請逐欄改成真實欄位名）' : '');
   document.getElementById('feRows').innerHTML = meta.props.map((p, i) => `
     <div class="fe-row">
       <input type="checkbox" id="fe_on_${i}" checked>
       <input type="text" id="fe_col_${i}" value="${escapeHtml(p.col)}">
-      <input type="text" id="fe_db_${i}" value="${escapeHtml(p.dbName)}"${p.guessed ? ' style="border-color:var(--warn);" title="⚠️ DB 欄名為推測，請確認"' : ''}>
+      <input type="text" id="fe_db_${i}" value="${escapeHtml(p.dbName)}"${(invented || p.guessed) ? ' style="border-color:var(--warn);background:color-mix(in srgb,var(--warn) 8%,var(--bg));" title="⚠️ 這個 DB 欄名是推測的，請改成資料表真實的欄位名"' : ''}>
       <select id="fe_type_${i}">
         <option value="string"${p.type === 'string' ? ' selected' : ''}>string</option>
         <option value="int"${p.type === 'int' ? ' selected' : ''}>int</option>
@@ -2421,7 +2429,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-09-04g';
+const APP_BUILD = '2026-09-04h';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-09-01';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-09-03';
@@ -3043,7 +3051,8 @@ function renderToolPicker(tools, assess, outCount, anyOk, checkedCount, blocked)
           <span class="cp-name">${escapeHtml(t.name)}</span>${t.isSection && t.sheetName && t.sheetName !== t.name
             ? `<span class="cp-src">（${escapeHtml(t.sheetName)} 分頁）</span>` : ''}<span class="cp-badge ${why ? 'no' : a.level}">${why ? '已擋下，未寫入檔案' : a.badge}</span>
           <span class="cp-why">${why
-            ? '<b>擋下原因：' + escapeHtml(why) + '</b> — 匯入後每一欄都查不到資料。若確定要做這個工具，請用上方「✏️ 欄位確認/修改」填入真實 DB 欄位名，填完就會解除。'
+            ? '<b>擋下原因：' + escapeHtml(why) + '</b> — 匯入後每一欄都查不到資料。'
+              + `<button type="button" class="cp-fix" onclick="event.preventDefault();fixToolFields(${i})">✏️ 填入真實欄位名，讓它可以匯出</button>`
             : escapeHtml(a.why)}</span>
         </span>
       </label>`;
@@ -3052,6 +3061,20 @@ function renderToolPicker(tools, assess, outCount, anyOk, checkedCount, blocked)
        <button class="cp-mini" onclick="pickAllTools(true)">全選</button>
        <button class="cp-mini" onclick="pickAllTools(false)">全不選</button>
      </div>`;
+}
+
+// 從被擋下的那一列直接跳去填欄位（不必自己去上面切工具下拉選單）
+function fixToolFields(i) {
+  const tools = window._tools || [];
+  if (!tools[i]) return;
+  if (!window._toolSel[i]) { window._toolSel[i] = true; }   // 沒勾就順手勾起來
+  window._activeToolIdx = i;
+  const sel = document.getElementById('toolSelect');
+  if (sel) sel.value = String(i);
+  toggleFieldEditor(true);
+  const panel = document.getElementById('fieldEditor');
+  if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  showToast('✏️ 請把每一欄的「DB 欄位名」改成 ' + (tools[i].name) + ' 資料表真實的欄位名');
 }
 
 function toggleToolPick(i, on) {
