@@ -2433,10 +2433,10 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-09-04j';
+const APP_BUILD = '2026-09-04k';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
-const CFG_SNAPSHOT_DATE = '2026-09-01';
-const CFG_AUTH_SNAPSHOT_DATE = '2026-09-03';
+const CFG_SNAPSHOT_DATE = '2026-09-04';
+const CFG_AUTH_SNAPSHOT_DATE = '2026-09-04';
 
 // MainConnection → BrowseAuthority 對照（known-browse-authority-snapshot.md 第1節）
 // 這份本質是「猜」不是「查」——權限字串沒有地方能查到新工具「應該」用哪個，
@@ -2452,6 +2452,7 @@ const CFG_AUTHORITY_MAP = {
   PartyGo: 'GAME_PARTYGO.LOG_BROWSE',
   GameTowerLogStar31: 'GAME_STAR31.LOG_BROWSE',
   GameTowerTmd: 'GAME_GOLD.LOG_BROWSE',
+  GameTower2Tmd: 'GAME_GOLD.LOG_BROWSE',
   PwsWeb: 'GAME_STAR31.LOG_BROWSE',
   Slam888Log: 'GAME_SLAM777.LOG_BROWSE',
   TadaJlBankCenterMain: 'BANK_CENTER.RECORD_BROWSE',
@@ -2498,7 +2499,7 @@ const CFG_BLACKLIST = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|EXEC|E
 const CFG_CONNECTIONS = ['BankCenterMain','CamWeb','DataVipCare','DevelopGameTowerWebLog','EuSsGameTowerCommon',
 'EuSsGameTowerMember','EuVfGameTowerCommon','EuVfGameTowerMember','FreshdeskLog','GameTower2AIODragonTycoon',
 'GameTower2AIODragonTycoon3','GameTower2AIOGura','GameTower2Cluster','GameTower2Config','GameTower2GTCasino',
-'GameTower2HappyFishI','GameTower2MJ','GameTower2Poker','GameTower2Web','GameTower3LogTmd','GameTowerAccount',
+'GameTower2HappyFishI','GameTower2MJ','GameTower2Poker','GameTower2Tmd','GameTower2Web','GameTower3LogTmd','GameTowerAccount',
 'GameTowerAccountStar31','GameTowerAccountTmd','GameTowerBackendDonut','GameTowerBill','GameTowerCamDonut',
 'GameTowerCommon','GameTowerContest','GameTowerEdm','GameTowerEmailAgent','GameTowerGtWarehouseBackup',
 'GameTowerLobbyGameStar31','GameTowerLog2Star31','GameTowerLog3Star31','GameTowerLogDonut','GameTowerLogStar31',
