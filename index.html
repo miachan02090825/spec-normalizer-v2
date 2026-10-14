@@ -2560,7 +2560,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-10-14k';
+const APP_BUILD = '2026-10-14l';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 // skill 包 2026-10-12 快照 86 個 ＋ 2026-10-14 dev 精靈連線清單多出的 8 個（CFG_CONN_DEV_RUNTIME_ONLY）
 const CFG_SNAPSHOT_DATE = '2026-10-14';
@@ -3153,12 +3153,10 @@ function buildQueryToolConfig(state, tool) {
     return { Type: 'CONDITION', Field: field, Label: p.col, Operator: op, Logic: 'AND' };
   });
   if (reverse.length) {
-    const mtg = CFG_MTG_BRAND.test((state.flatText || '') + text) && /^Slam/.test(mainConnection);
-    todos.push(`<b>搜尋條件</b>：規格書寫可輸入${reverse.map(p => '「' + escapeHtml(hints[p.dbName].label) + '」').join('、')}查詢，`
-      + `但欄位 ${reverse.map(p => '<code>' + escapeHtml(p.dbName) + '</code>').join('、')} 存的是編號，要先把輸入值反查成編號，<b>沒有產生這個條件</b>（直接用會查詢失敗）。`
-      + (mtg ? '大滿貫可用 <code>MTG_PLATFORM_ACCOUNT</code>：輸入的是 <code>Slam888Backend</code> 的 <code>[user].[nickname]</code>（GT 帳號）再換成編號；'
-             + '若要輸入的是遊戲內暱稱，需要跨兩台伺服器的兩段反查，請工程師評估' : '請工程師用 <code>LOOKUP</code>（單步反查）或對應的反查運算子設定'));
-    rows.push(['搜尋（需反查）', reverse.map(p => escapeHtml(p.dbName) + '←' + escapeHtml(hints[p.dbName].label)).join('、'), 'warn', '未產生，需反查設定']);
+    // 團隊決定（2026-10-14）：需要反查的搜尋（輸入暱稱、欄位存編號）留空，不產生、也不列待確認。
+    // 直接用會拿文字比編號、每次都查詢失敗；反查要跨伺服器，後台目前沒有單一設定做得到。
+    rows.push(['搜尋（未提供）', reverse.map(p => '「' + escapeHtml(hints[p.dbName].label) + '」→ ' + escapeHtml(p.dbName)).join('、'), 'ok',
+      '規格書有寫，但輸入的值要先換成編號（反查）才能查，依決定先不提供這個搜尋']);
   }
   if (!named.length && !reverse.length) {
     // 團隊慣例：規格書沒寫搜尋條件時，只放日期區間就好，不算待確認。
