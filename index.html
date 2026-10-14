@@ -2445,7 +2445,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-10-14a';
+const APP_BUILD = '2026-10-14b';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-10-12';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-10-12';
@@ -2590,9 +2590,16 @@ function renderBuiltinRules() {
 // 只放經工程師確認的對應：規格書寫的 [Database] 是 SQL Server 實體 DB 名，
 // 連線識別碼是後端路由用的鍵，兩者命名空間不同。加進來前務必先驗證後端真的有這個連線；
 // 加了但 MsSqlColl 沒有 → 匯入通過、查詢時撞 Error [9000]。
+// 值可以是連線名，或 { conn, brand }：brand 必須在文件裡找得到才套用——
+// 同一個實體 DB 名在不同品牌是不同連線（backend 在大滿貫是 Slam888Backend，Donut 另有 DonutBackend）。
+const CFG_MTG_BRAND = /大滿貫|滿貫大亨|MTG|Slam888/i;
 const CFG_DB_TO_CONNECTION = {
   // GameTower2_TMD 實際掛在 GameTowerTmd（版本數字不進連線名）。2026-09-04 由 miachan 確認。
   'gametower2tmd': 'GameTowerTmd',
+  // 依 2026-10-12 skill 包 schema.md：MTG_PLATFORM_ACCOUNT 讀 Slam888Backend.[user]、
+  // MTG_PLATFORM_ACCOUNTID 讀 Slam888Slam.Member_Account（引擎程式碼的實際連線）
+  'backend': { conn: 'Slam888Backend', brand: CFG_MTG_BRAND },
+  'slam': { conn: 'Slam888Slam', brand: CFG_MTG_BRAND },
 };
 
 // ── 連線識別碼比對（語意比對，非字面相等）──
@@ -2603,7 +2610,9 @@ function matchConnection(dbName, hintText) {
   const target = norm(dbName);
   if (!target) return { value: null, candidates: [] };
   // 先查別名表：規格書寫的實體 DB 名不必然等於連線識別碼
-  const aliasHit = CFG_DB_TO_CONNECTION[target];
+  const alias = CFG_DB_TO_CONNECTION[target];
+  const aliasHit = alias && (typeof alias === 'string' ? alias
+    : (alias.brand.test(hintText || '') ? alias.conn : null));
   if (aliasHit && pack.connections.indexOf(aliasHit) >= 0) {
     return { value: aliasHit, candidates: [], reason: 'alias' };
   }
