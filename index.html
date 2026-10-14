@@ -586,6 +586,14 @@ body {
   width: 80px; background: var(--bg); border: 1px solid var(--border);
   border-radius: 6px; padding: 5px 8px; color: var(--text); font-size: 0.77rem;
 }
+.mn-wiz { flex: 1; min-width: 240px; font-size: 0.72rem; color: var(--text2); }
+.mn-wiz b { color: var(--text); }
+.mn-copy {
+  background: var(--accent); color: #fff; border: none; border-radius: 6px;
+  padding: 5px 10px; font-size: 0.74rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.mn-copy:hover { filter: brightness(1.08); }
+.mn-copy:disabled { opacity: 0.45; cursor: not-allowed; }
 .cp-sub-inline { font-weight: 400; font-size: 0.73rem; color: var(--text2); margin-left: 6px; }
 .cfg-picker .cp-sub { font-size: 0.73rem; color: var(--text2); margin-bottom: 9px; line-height: 1.55; }
 .cp-row {
@@ -2552,9 +2560,10 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-10-14h';
+const APP_BUILD = '2026-10-14i';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
-const CFG_SNAPSHOT_DATE = '2026-10-12';
+// skill 包 2026-10-12 快照 86 個 ＋ 2026-10-14 dev 精靈連線清單多出的 8 個（CFG_CONN_DEV_RUNTIME_ONLY）
+const CFG_SNAPSHOT_DATE = '2026-10-14';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-10-12';
 
 // MainConnection → BrowseAuthority 對照（known-browse-authority-snapshot.md 第1節）
@@ -2647,13 +2656,18 @@ const CFG_CONNECTIONS = [
 'GameTowerLogTmd','GameTowerMember','GameTowerMemberMaster','GameTowerMJ','GameTowerPartyGo',
 'GameTowerPartyGoConfig','GameTowerPartyGoCredit','GameTowerPartyGoTableau','GameTowerSlaveLog3Star31','GameTowerSlaveMember',
 'GameTowerTmd','GameTowerWarehouse','GameTowerWeb','GameTowerWebLog','GtDataWarehouse',
-'InternalWebMain','JoyaJlBankCenterMain','KhPsGameTowerCommon','KhPsGameTowerMember','Language',
-'MemberCenterMain','MessageCenterMain','Nft','PartyGo','PartyGoLog',
+'InternalCustomerServiceMain','InternalWebMain','JoyaJlBankCenterMain','KhPsGameTowerCommon','KhPsGameTowerMember','Language',
+'MemberCenterMain','MessageCenterMain','Monitor','Nft','PartyGo','PartyGoLog',
 'PartyGoMemberAccount','PhPsGameTowerCommon','PhPsGameTowerMember','PwsWeb','ServiceCenterMain',
 'Slam777Config','Slam777Log','Slam888Backend','Slam888Cam','Slam888Config',
-'Slam888Log','Slam888Slam','SlaveMemberCenterMain','TadaJlBankCenterMain','ThIgBankCenterMain',
-'VnIgBankCenterMain','VnJlBankCenterMain','We5Do','Wedo5Do','Wedo5DoBill',
+'Slam888Log','Slam888Slam','SlaveMemberCenterMain','SqlProfilerTrace','TadaJlBankCenterMain','ThIgBankCenterMain',
+'UpdateDbHosts_TadaBackend','UpdateDbHosts_TadaCamWeb','UpdateDbHosts_ThBackend','UpdateDbHosts_ThCamWeb',
+'VnIgBankCenterMain','VnJlBankCenterMain','We5Do','WebCase','Wedo5Do','Wedo5DoBill',
 'Wedo5Wedo5'];
+// 2026-10-14 在 dev 精靈「主查詢連線」選單看到、但 2026-10-12 skill 包快照沒有的 8 個
+// （skill 包也說 dev 執行期比 ApiConfig 設定檔多幾個、來源不在 repo 內）。二測／正式有沒有未確認。
+const CFG_CONN_DEV_RUNTIME_ONLY = ['InternalCustomerServiceMain','Monitor','SqlProfilerTrace','UpdateDbHosts_TadaBackend',
+  'UpdateDbHosts_TadaCamWeb','UpdateDbHosts_ThBackend','UpdateDbHosts_ThCamWeb','WebCase'];
 // 各環境可用性（快照有 ≠ 二測／正式也有）。develop:Development 有、但 test:Staging 沒有的 15 把；
 // master:Production 另外再缺 6 把。選到這些連線時，待確認清單要提醒上線前先合併 ApiConfig 設定。
 const CFG_CONN_NOT_IN_STAGING = ['FormalGameTowerSlaveMember','GameTower2AIODragonTycoon','GameTower2AIODragonTycoon3',
@@ -2903,6 +2917,9 @@ function buildQueryToolConfig(state, tool) {
     todos.push(`<b>MainConnection</b>：<code>${escapeHtml(mainConnection)}</code> 目前只在 dev 設定，<b>${where}環境沒有</b>。`
       + '上線前需先把這個連線設定合併到 ApiConfig 的 test／master，否則在該環境執行會失敗');
     rows.push(['連線環境', `<code>${escapeHtml(mainConnection)}</code>`, 'warn', `${where}環境尚無此連線（${CFG_SNAPSHOT_DATE} 快照）`]);
+  } else if (CFG_CONN_DEV_RUNTIME_ONLY.indexOf(mainConnection) >= 0) {
+    todos.push(`<b>MainConnection</b>：<code>${escapeHtml(mainConnection)}</code> 只在 dev 後台的連線清單確認過，<b>二測／正式有沒有這個連線還不知道</b>。上線前請工程師確認`);
+    rows.push(['連線環境', `<code>${escapeHtml(mainConnection)}</code>`, 'warn', '只在 dev 確認過']);
   }
 
   // 2) 主資料表
@@ -2923,8 +2940,9 @@ function buildQueryToolConfig(state, tool) {
                  && !new RegExp(q + '$', 'i').test(mainTable));
   if (qualifiers.length) {
     todos.push(`<b>跨表欄位</b>：這個工具有欄位來自 <code>${qualifiers.map(escapeHtml).join('</code>／<code>')}</code>，不是主表 <code>${escapeHtml(mainTable)}</code>。`
-      + '這需要 <code>RelatedTableSetting</code> 關聯設定（或改用 <code>CUSTOM_SQL</code>），<b>本工具不會產生關聯設定</b>，請工程師補上，否則這些欄位查不到資料');
-    rows.push(['跨表欄位', qualifiers.map(escapeHtml).join('、'), 'warn', '需 RelatedTableSetting，本工具未產生']);
+      + '這需要 <code>RelatedTableSetting</code> 關聯設定（或改用 <code>CUSTOM_SQL</code>），<b>本工具不會產生關聯設定</b>。'
+      + '可先貼到精靈看右側即時預覽：查不到資料或顯示「欄位定義有誤」的欄位，再請工程師補關聯設定');
+    rows.push(['跨表欄位', qualifiers.map(escapeHtml).join('、'), 'warn', '需 RelatedTableSetting，本工具未產生；精靈預覽可確認']);
   }
 
   // 2.6) 規格書宣告的關聯表（已併入本工具、不另外產工具）：
@@ -2935,11 +2953,14 @@ function buildQueryToolConfig(state, tool) {
     if (auto.length) {
       rows.push(['關聯表（已自動查值）', auto.map(l => escapeHtml(l.ref)).join('<br>'), 'ok',
         '依規格書的「關聯主鍵／直接顯示」產生代碼表查值，預設對應欄位為唯一']);
+      // 精靈會即時預覽查詢結果：查值設錯的那一欄會顯示「欄位定義有誤」，當場就看得出來
+      todos.push(`<b>查值欄位</b>：${auto.map(l => '<code>' + escapeHtml(l.Table) + '</code>').join('、')} 已自動產生代碼表查值。`
+        + '貼到精靈後看右側預覽：這幾欄有正常顯示文字就完成；若顯示「欄位定義有誤」，再請工程師確認對應欄位');
     }
     if (lookups.unresolved.length) {
       todos.push(`<b>關聯表</b>：下列 ${lookups.unresolved.length} 張表沒有自動產生查值，相關欄位先顯示原始值：`
         + lookups.unresolved.map(u => '<code>' + escapeHtml(u.ref) + '</code>（' + escapeHtml(u.why) + '）').join('、')
-        + '。若需要轉成文字，請工程師另外設定（多段轉換目前後台不好做，可接受先顯示原始值就不用處理）');
+        + '。精靈預覽會看到這些欄位顯示原始代碼；可接受就不用處理（多段轉換目前後台不好做），需要轉成文字再請工程師另外設定');
       rows.push(['關聯表（未自動查值）', lookups.unresolved.map(u => escapeHtml(u.ref)).join('<br>'), 'warn', '顯示原始值']);
     }
   }
@@ -2982,12 +3003,18 @@ function buildQueryToolConfig(state, tool) {
   // 4) 選單位置：路徑從規格書帶出來，MenuNo 由使用者填（API 只吃數字）
   const menuPath = mi[mKey].path || '';
   const menuNo = mi[mKey].menuNo || 0;
+  const wizardMenu = splitMenuPath(menuPath, toolName);
   if (menuNo > 0) {
     rows.push(['選單位置', `MenuNo=<code>${menuNo}</code>` + (menuPath ? '（' + escapeHtml(menuPath) + '）' : ''), 'ok', '已指定節點編號']);
   } else if (menuPath) {
-    todos.push(`<b>選單位置</b>：規格書寫的是「<b>${escapeHtml(menuPath)}</b>」，但匯入檔只能填數字 <code>MenuNo</code>。`
-      + '請工程師把這個路徑對照 <code>SYSTEM_ToolMenu</code> 換成節點編號（或在後台「新增自動化工具」頁面的「選單位置」直接貼這串路徑，系統會自動建缺少的資料夾）');
-    rows.push(['選單位置', escapeHtml(menuPath), 'warn', '已從規格書取得，待換成 MenuNo']);
+    // 精靈存檔時逐段比對路徑、缺的資料夾自動建立，不需要節點編號（2026-10-14 dev 精靈確認）；
+    // 只有走 import 匯入檔才需要數字 MenuNo
+    todos.push(`<b>選單位置</b>：建議用後台「新增自動化工具」精靈建立——按「📋 複製（貼到精靈）」→ 精靈「貼上JSON快速填入」，`
+      + `再在「選單位置」填 <b>${escapeHtml(wizardMenu.folder)}</b>`
+      + (wizardMenu.leaf ? `、「工具名稱」填 <b>${escapeHtml(wizardMenu.leaf)}</b>（規格書路徑的最後一段是工具在選單上的名稱）` : '')
+      + '。已存在的資料夾會沿用、缺的會自動建立，不需要節點編號。只有改用匯入檔（import）時，才要請工程師換成數字 <code>MenuNo</code>');
+    rows.push(['選單位置', escapeHtml(wizardMenu.folder) + (wizardMenu.leaf ? '（工具名稱：' + escapeHtml(wizardMenu.leaf) + '）' : ''),
+      'ok', '精靈直接填路徑即可']);
   } else {
     todos.push('<b>選單位置</b>：規格書沒寫工具要放在哪個選單，<code>MenuNo</code> 先填 <code>0</code>，請補上位置再交給工程師');
     rows.push(['選單位置', 'MenuNo=<code>0</code>', 'warn', '規格書未寫，需補']);
@@ -3052,6 +3079,16 @@ function buildQueryToolConfig(state, tool) {
       hiddenCols.map(p => '<code>' + escapeHtml(p.dbName) + '</code>（' + escapeHtml(p.hiddenWhy) + '）').join('、'),
       'ok', `${hiddenCols.length} 欄未放進顯示欄位；需要的話可在「✏️ 欄位確認/修改」勾回來`]);
   }
+  // 時間欄位可能存的是毫秒時間戳記（bigint），離線看不到欄位型別。0908GT 的 create_time 在 dev 精靈預覽
+  // 顯示成 1791800315733：顯示要 EPOCH_MS_DATE；而 BETWEEN 對非日期欄會把日期當字串比、選日期查詢會失敗
+  // 「冷卻時間 (小時)」是時長、「重置時間CRON」是排程字串，都不是時間點
+  const timeCols = props.filter(p => !p.hidden && !isNotAColumnTitle(p.col) && cfgIsDate(p) && cfgSpecialFor(p) === 'NONE'
+    && !/小時|分鐘|秒數|天數|CRON|週期|冷卻|間隔/i.test(p.col));
+  if (timeCols.length) {
+    todos.push(`<b>時間欄位</b>：貼到精靈後看預覽，${timeCols.map(p => '「' + escapeHtml(p.col) + '」').join('、')} 若顯示成一長串數字（例如 1791800315733，毫秒時間戳記）：`
+      + '顯示欄位的「特殊轉換」改選 <code>EPOCH_MS_DATE</code>；而且這種欄位<b>不能直接用日期區間搜尋</b>（選日期會查詢失敗），需請工程師改成 <code>CUSTOM_SQL_DATE_RANGE</code>。正常顯示日期就不用處理');
+  }
+
   // 「預設為 2」可能是「只查 api_id = 2 的資料」，也可能只是描述資料本身——不自動產生條件，交人判斷
   const defaults = props.filter(p => p.defaultValue != null);
   if (defaults.length) {
@@ -3123,7 +3160,7 @@ function buildQueryToolConfig(state, tool) {
     ExportRequiredField: exportField,
     InvalidFlag: false,
   };
-  return { item, rows, todos, viewData, search };
+  return { item, rows, todos, viewData, search, wizardMenu };
 }
 // 從規格書的「搜尋條件／查詢條件／搜尋功能／篩選」段落，找出真的被點名的欄位。
 // 沒有依據就不要湊——湊出來的搜尋條件看似合理，實際上多半不是使用者要的。
@@ -3197,7 +3234,7 @@ function validateConfig(items) {
       if (!it[k] || !String(it[k]).trim()) errors.push(`${L}${k} 不可空白`);
       else if (/^TODO_/.test(it[k])) warns.push(`${L}${k} 仍是待確認佔位字 ${it[k]}`);
     });
-    if (!(it.MenuNo > 0)) warns.push(`${L}MenuNo=${it.MenuNo}，匯入前需換成 SYSTEM_ToolMenu 的真實編號`);
+    if (!(it.MenuNo > 0)) warns.push(`${L}MenuNo=${it.MenuNo}：用精靈建立時不需要（選單位置填路徑即可）；走匯入檔才要換成 SYSTEM_ToolMenu 的真實編號`);
     let view = [], search = [];
     try { view = JSON.parse(it.ViewDataSetting || '[]'); } catch (e) { errors.push(`${L}ViewDataSetting 不是合法 JSON 字串`); }
     try { search = JSON.parse(it.SearchSetting || '[]'); } catch (e) { errors.push(`${L}SearchSetting 不是合法 JSON 字串`); }
@@ -3343,6 +3380,24 @@ function extractMenuPath(text, fallbackText) {
   };
   return scan(text) || scan(fallbackText) || '';
 }
+// 後台精靈的「選單位置」只填資料夾，工具本身的名稱另外填（現有的「超級王牌」：選單位置
+// 遊戲工具 > MTG > SLOT機台遊戲 > 四字機台、工具名稱 超級王牌）。規格書寫的路徑常把工具名稱
+// 也寫在最後一段（遊戲工具 → 大滿貫 → 查詢工具 → 遊戲類相關查詢 → 閃牌查詢），要拆開。
+// 判斷不出最後一段是不是工具時，整串當資料夾，由使用者在精靈裡確認。
+function splitMenuPath(path, toolName) {
+  const segs = String(path || '').split(/\s*>\s*/).map(s => s.trim()).filter(Boolean);
+  if (segs.length < 2) return { folder: segs.join(' > '), leaf: '' };
+  const last = segs[segs.length - 1];
+  const core = s => String(s || '').replace(/[\s／\/]/g, '').replace(/(查詢|設定)?工具$/, '');
+  const tn = core(toolName), lc = core(last);
+  const sameAsTool = tn.length >= 2 && lc.length >= 2 && (tn.indexOf(lc) >= 0 || lc.indexOf(tn) >= 0);
+  // 「返利點數查詢工具」這種以「工具」結尾的最後一段是工具；單獨的「查詢工具／設定工具」是資料夾
+  const looksLikeTool = /工具$/.test(last) && !/^(查詢|設定|遊戲|後端|後台)?工具$/.test(last);
+  return (sameAsTool || looksLikeTool)
+    ? { folder: segs.slice(0, -1).join(' > '), leaf: last }
+    : { folder: segs.join(' > '), leaf: '' };
+}
+
 function menuInfo(tool) {
   const k = overrideKey(tool);
   return (window._menuInfo = window._menuInfo || {})[k] || null;
@@ -3369,8 +3424,10 @@ function renderMenuEditor(pickedTools, state) {
         const k = overrideKey(t);
         const ks = escapeHtml(k).replace(/'/g, "\\'");
         const mi = (window._menuInfo || {})[k] || {};
-        const it = items.find(x => x.ToolName === t.name);
+        const idx = items.findIndex(x => x.ToolName === t.name);
+        const it = items[idx];
         const suggested = it && !mi.authority ? it.BrowseAuthority : '';
+        const wm = (idx >= 0 && (window._cfgOut.menus || [])[idx]) || splitMenuPath(mi.path, t.name);
         return `<div class="mn-row">
           <span class="mn-name">${escapeHtml(t.name)}</span>
           <input class="mn-path" type="text" placeholder="如：遊戲工具 > 大滿貫 > 設定工具 > 活動類相關設定"
@@ -3388,6 +3445,13 @@ function renderMenuEditor(pickedTools, state) {
                  placeholder="${escapeHtml(suggested ? '建議：' + suggested : '留空＝用建議值')}"
                  value="${escapeHtml(mi.authority || '')}"
                  onchange="setMenuInfo('${ks}','authority',this.value)">
+        </div>
+        <div class="mn-row">
+          <span class="mn-name"></span>
+          <span class="mn-wiz">精靈填：選單位置「<b>${escapeHtml(wm.folder || '（規格書未寫）')}</b>」${wm.leaf
+            ? `、工具名稱「<b>${escapeHtml(wm.leaf)}</b>」` : ''}</span>
+          <button type="button" class="mn-copy" ${idx < 0 ? 'disabled title="這支工具被擋下，沒有寫進設定檔"' : ''}
+                  onclick="copyWizardJson(${idx})">📋 複製（貼到精靈）</button>
         </div>`;
       }).join('');
 }
@@ -3572,13 +3636,13 @@ function runConfigGeneration() {
     }
   }
 
-  // wizard 為單一物件 + MenuParentNo；import 為陣列
+  // wizard 為單一物件；import 為陣列
   let payload;
   if (wizard) {
-    // wizard 端點吃單一物件，不是陣列 → 一次只能建一個工具
-    const one = Object.assign({}, items[0]);
-    delete one.IndexNo; delete one.InvalidFlag; delete one.MenuNo;
-    one.MenuParentNo = 0;
+    // wizard 端點吃單一物件，不是陣列 → 一次只能建一個工具。
+    // 不寫 MenuParentNo：不知道編號時寫 0 會被當成根節點（精靈「貼上JSON」看到數字就會依它帶入路徑），
+    // 選單位置改在精靈裡填路徑，存檔時系統會逐段比對、自動建資料夾
+    const one = wizardItem(items[0]);
     payload = one;
     if (items.length > 1) {
       warns.push(`wizard 格式一次只能建立一個工具，本次只會輸出「${items[0].ToolName}」，`
@@ -3589,11 +3653,27 @@ function runConfigGeneration() {
     payload = items;
   }
 
+  // 精靈的工具名稱＝選單節點名稱。同一份規格書的兩個頁籤（VIP返利 頁籤1／頁籤2）路徑最後一段相同，
+  // 照填會在同一個資料夾建出兩個同名工具 → 同名時接上各自的頁籤名稱
+  const menus = built.map(b => Object.assign({}, b.wizardMenu));
+  const renamed = {};   // 原本的建議名稱 → 改名後的各支名稱（給待確認清單用）
+  menus.forEach((m, i) => {
+    if (!m.leaf || menus.filter(x => x.leaf === m.leaf && x.folder === m.folder).length < 2) return;
+    const tab = String(items[i].ToolName).replace(/^\s*頁籤\s*\d+\s*[／\/:：-]?\s*/, '').trim() || items[i].ToolName;
+    (renamed[m.leaf] = renamed[m.leaf] || []).push(m.leaf + '-' + tab);
+  });
+  menus.forEach(m => { if (renamed[m.leaf]) m.leaf = renamed[m.leaf].shift(); });
+  const renamedAll = {};
+  built.forEach((b, i) => { const o = b.wizardMenu.leaf; if (o && menus[i].leaf !== o) (renamedAll[o] = renamedAll[o] || []).push(menus[i].leaf); });
+  const fixLeafTodo = t => Object.keys(renamedAll).reduce((s, o) =>
+    s.split('「工具名稱」填 <b>' + escapeHtml(o) + '</b>').join('「工具名稱」分別填 <b>' + renamedAll[o].map(escapeHtml).join('</b>／<b>') + '</b>'), t);
+
   window._cfgOut = {
     payload, items, wizard, blocked,
+    menus,   // 與 items 同序：精靈要填的資料夾路徑／工具名稱
     // 分組標題用實際寫進檔案的那幾筆，擋掉的不能再用 pickedTools 的索引去對
     rows: built.reduce((a, b, i) => a.concat(items.length > 1 ? [['— ' + items[i].ToolName + ' —', '', 'ok', '']] : [], b.rows), []),
-    todos: Array.from(new Set(built.reduce((a, b) => a.concat(b.todos), []))),
+    todos: Array.from(new Set(built.reduce((a, b) => a.concat(b.todos), []).map(fixLeafTodo))),
     errors, warns,
     toolCount: wizard ? Math.min(1, items.length) : items.length,
     skipped: tools.filter((t, i) => !window._toolSel[i]).map(t => t.name)
@@ -3661,6 +3741,24 @@ function cfgBaseName() {
   const s = window._lastState;
   return (s ? s.fileName.replace(/\.[^.]+$/, '') : 'query-tool') || 'query-tool';
 }
+// 精靈「貼上JSON快速填入」吃的格式：單一物件（不是陣列）、必須有 ToolName；
+// 不讀選單路徑文字，MenuParentNo 是數字才會用（2026-10-14 讀 dev 後台前端程式確認）
+function wizardItem(it) {
+  const one = Object.assign({}, it);
+  delete one.IndexNo; delete one.InvalidFlag; delete one.MenuNo; delete one.MenuParentNo;
+  return one;
+}
+function copyWizardJson(i) {
+  const o = window._cfgOut;
+  const it = o && o.items[i];
+  if (!it) { showError('這支工具沒有寫進設定檔（可能被擋下），無法複製'); return; }
+  const m = (o.menus || [])[i] || {};
+  navigator.clipboard.writeText(JSON.stringify(wizardItem(it), null, 2)).then(() => {
+    showToast('📋 已複製「' + it.ToolName + '」——到精靈按「貼上JSON快速填入」貼上'
+      + (m.folder ? '，選單位置填：' + m.folder : '') + (m.leaf ? '，工具名稱填：' + m.leaf : ''));
+  }, () => showError('複製失敗，請改用下載的 JSON'));
+}
+
 function downloadConfigJson() {
   if (!window._cfgOut) return;
   const txt = JSON.stringify(window._cfgOut.payload, null, 2);
@@ -3682,14 +3780,16 @@ function downloadChecklist() {
     `- 工具數：${o.toolCount}`,
     ...(o.skipped && o.skipped.length ? [`- 未納入的分頁（${o.skipped.length}）：${o.skipped.join('、')}`] : []),
     `- 本機驗證：${o.errors.length ? '❌ ' + o.errors.length + ' 項錯誤' : '✅ 通過'}`,
-    '', '## 選單位置（工具要掛在後台選單的哪裡）', '',
-    '| 工具 | 選單位置 | MenuNo |', '|---|---|---|',
+    '', '## 建立方式與選單位置', '',
+    '**建議用後台精靈建立**：到「新增自動化工具」→「貼上JSON快速填入」貼上該工具的 JSON（工具頁「📋 複製（貼到精靈）」，一次一支），',
+    '再照下表填「選單位置」與「工具名稱」。選單位置填資料夾路徑即可，存檔時系統逐段比對，已存在的沿用、不存在的自動建立，不需要節點編號。',
+    '', '| 工具 | 精靈：選單位置（資料夾） | 精靈：工具名稱 | 匯入檔 MenuNo |', '|---|---|---|---|',
     ...o.items.map((it, i) => {
-      const mi = (window._menuInfo || {})[overrideKey((window._tools || []).find(t => t.name === it.ToolName) || null)] || {};
-      return `| ${it.ToolName} | ${mi.path || '⚠️ 規格書未寫，需補'} | ${it.MenuNo > 0 ? it.MenuNo : '⚠️ 待對照 SYSTEM_ToolMenu'} |`;
+      const m = (o.menus || [])[i] || {};
+      return `| ${it.ToolName} | ${m.folder || '⚠️ 規格書未寫，需補'} | ${m.leaf || it.ToolName} | ${it.MenuNo > 0 ? it.MenuNo : '（走匯入檔才需要）'} |`;
     }),
     '',
-    '> 匯入 API 只接受數字 `MenuNo`。若還沒有編號，可在後台「新增自動化工具」頁面的「選單位置」直接貼上上表路徑——系統會逐段比對，已存在的沿用、不存在的自動建立。',
+    '> 只有改用匯入 API（import）時才需要數字 `MenuNo`，請工程師對照 `SYSTEM_ToolMenu` 換成節點編號。',
     '', '## 對照表', '',
     '| 規格文件項目 | 對應設定 | 狀態 | 說明 |', '|---|---|---|---|',
     ...o.rows.filter(r => r[1] !== '').map(r => `| ${strip(r[0])} | ${strip(r[1])} | ${r[2] === 'ok' ? '✅' : '⚠️'} | ${strip(r[3])} |`),
