@@ -2560,7 +2560,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-10-14i';
+const APP_BUILD = '2026-10-14j';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 // skill 包 2026-10-12 快照 86 個 ＋ 2026-10-14 dev 精靈連線清單多出的 8 個（CFG_CONN_DEV_RUNTIME_ONLY）
 const CFG_SNAPSHOT_DATE = '2026-10-14';
@@ -3117,26 +3117,56 @@ function buildQueryToolConfig(state, tool) {
   // 舊版是「日期 + 顯示欄位前 3 個」硬湊，等於把數值型顯示欄位當成 EQ 搜尋條件，多半文不對題。
   // 改成：先從規格書的搜尋/查詢條件段落找出真的被點名的欄位；找不到就只留日期區間並明說沒推斷出來。
   const dateP = props.find(p => cfgOperatorFor(p) === 'BETWEEN');
-  const named = findNamedSearchFields(text, props).filter(p => p !== dateP);
+  // 規格書也常把搜尋需求寫在欄位表的「在工具上如何設定」：「工具可透過下拉式選單選擇「遊戲名稱」查詢」
+  // （0908GT 三個搜尋欄位都寫在這裡，以前沒讀，被當成「規格書沒寫」）
+  const hints = findSearchHints(extractFieldPairs(text));
+  const reverse = [];   // 輸入的是暱稱／帳號、欄位存的是編號 → 需要反查，不能直接產條件
+  const hinted = props.filter(p => {
+    const h = hints[p.dbName];
+    if (!h || p === dateP) return false;
+    if (h.mode === 'input' && /暱稱|帳號|名稱/.test(h.label) && /(^|_)id$|Id$|ID$/.test(p.dbName || '')) { reverse.push(p); return false; }
+    return true;
+  });
+  const named = findNamedSearchFields(text, props).filter(p => p !== dateP && hinted.indexOf(p) < 0 && reverse.indexOf(p) < 0)
+    .concat(hinted);
   const searchProps = (dateP ? [dateP] : []).concat(named);
   const search = searchProps.map(p => {
+    const field = p.dbName || fePascalSafe(p.col);
+    const h = hints[p.dbName];
+    const lk = lookups.found[p.dbName];
+    if (p !== dateP && h && h.mode === 'dropdown' && lk) {
+      // 下拉候選值直接取自同一張對照表（顯示欄位的代碼表查值用的也是它）
+      rows.push([`搜尋「${escapeHtml(h.label)}」`, `Operator=<code>EQ</code>，下拉候選值 ← <code>${escapeHtml(lk.Connection)}</code>.${escapeHtml(lk.Table)}（${escapeHtml(lk.KeyColumn)} → ${escapeHtml(lk.ValueColumn)}）`,
+        'ok', '規格書寫可用下拉選單選擇「' + escapeHtml(h.label) + '」查詢']);
+      return { Type: 'CONDITION', Field: field, Label: h.label, Operator: 'EQ', Logic: 'AND',
+        CodeTableChoice: { Connection: lk.Connection, Table: lk.Table, KeyColumn: lk.KeyColumn, ValueColumn: lk.ValueColumn } };
+    }
     const op = cfgOperatorFor(p);
     const why = p === dateP ? '規格書的日期欄位 → 區間查詢（值以 ~ 分隔）'
-                            : '規格書的搜尋條件段落有點名這個欄位';
-    rows.push([`搜尋「${escapeHtml(p.col)}」`, `Operator=<code>${op}</code>`, 'ok', why]);
-    return { Type: 'CONDITION', Field: p.dbName || fePascalSafe(p.col), Label: p.col, Operator: op, Logic: 'AND' };
-  });
-  if (!named.length) {
-    todos.push('<b>SearchSetting</b>：規格書沒有明確寫出要用哪些欄位搜尋，因此<b>只放了日期區間</b>（若有）。'
-      + '請對照規格書補上真正的搜尋條件與運算子——<b>不要沿用預設值就直接匯入</b>');
-    // 團隊慣例：規格書沒寫時，日期區間預設近 7 天。但後台的 DefaultValue 是原字串照填、不會換算相對日期
-    // （2026-10-14 查 dev 後台前端確認），寫死日期隔天就過時，所以先不產生、等後台支援
-    if (search.some(s => s.Operator === 'BETWEEN')) {
-      todos.push('<b>日期區間預設</b>：規格書沒寫時，日期區間應<b>預設近 7 天</b>。但後台目前的預設值只能填固定文字、不支援「近 N 天」，'
-        + '寫死日期隔天就過時，所以設定檔<b>沒有填預設值</b>（目前打開工具會顯示最近 20 筆）。已請工程師評估支援，支援後再補上');
+              : h ? '規格書寫可用「' + escapeHtml(h.label) + '」查詢'
+              : '規格書的搜尋條件段落有點名這個欄位';
+    if (p !== dateP && h && h.mode === 'dropdown') {
+      todos.push(`<b>搜尋條件</b>：規格書寫「${escapeHtml(h.label)}」用下拉選單選，但找不到候選值的來源表，目前產成一般輸入框（<code>${op}</code>）。`
+        + '要下拉選單的話，請工程師在精靈設定候選值來源（<code>CodeTableChoice</code>）');
     }
-    rows.push(['搜尋條件', search.length ? '僅日期區間' : 'SearchSetting=<code>[]</code>',
-      'warn', '規格書未明確描述搜尋需求，未自行湊數']);
+    rows.push([`搜尋「${escapeHtml(p.col)}」`, `Operator=<code>${op}</code>`, 'ok', why]);
+    return { Type: 'CONDITION', Field: field, Label: p.col, Operator: op, Logic: 'AND' };
+  });
+  if (reverse.length) {
+    const mtg = CFG_MTG_BRAND.test((state.flatText || '') + text) && /^Slam/.test(mainConnection);
+    todos.push(`<b>搜尋條件</b>：規格書寫可輸入${reverse.map(p => '「' + escapeHtml(hints[p.dbName].label) + '」').join('、')}查詢，`
+      + `但欄位 ${reverse.map(p => '<code>' + escapeHtml(p.dbName) + '</code>').join('、')} 存的是編號，要先把輸入值反查成編號，<b>沒有產生這個條件</b>（直接用會查詢失敗）。`
+      + (mtg ? '大滿貫可用 <code>MTG_PLATFORM_ACCOUNT</code>：輸入的是 <code>Slam888Backend</code> 的 <code>[user].[nickname]</code>（GT 帳號）再換成編號；'
+             + '若要輸入的是遊戲內暱稱，需要跨兩台伺服器的兩段反查，請工程師評估' : '請工程師用 <code>LOOKUP</code>（單步反查）或對應的反查運算子設定'));
+    rows.push(['搜尋（需反查）', reverse.map(p => escapeHtml(p.dbName) + '←' + escapeHtml(hints[p.dbName].label)).join('、'), 'warn', '未產生，需反查設定']);
+  }
+  if (!named.length && !reverse.length) {
+    // 團隊慣例：規格書沒寫搜尋條件時，只放日期區間就好，不算待確認。
+    // 日期區間應預設近 7 天，但後台的 DefaultValue 是原字串照填、不會換算相對日期（2026-10-14 查 dev 後台前端確認），
+    // 寫死日期隔天就過時，所以先不產生、等後台支援（已向工程師提需求）
+    rows.push(['搜尋條件', search.length ? '僅日期區間' : 'SearchSetting=<code>[]</code>', 'ok',
+      search.length ? '規格書沒寫搜尋條件，依團隊慣例只放日期區間（應預設近 7 天，待後台支援相對日期後補上；目前打開工具顯示最近 20 筆）'
+                    : '規格書沒寫搜尋條件，也沒有日期欄位']);
   }
 
   // 7) 匯出：有日期區間才開，並指定為必填搜尋欄位（規範：避免無條件匯出全表）
@@ -3162,6 +3192,19 @@ function buildQueryToolConfig(state, tool) {
   };
   return { item, rows, todos, viewData, search, wizardMenu };
 }
+// 欄位表「在工具上如何設定」裡的搜尋需求：「工具可透過下拉式選單選擇「遊戲名稱」查詢對應結果」、
+// 「工具可透過輸入「玩家暱稱」查詢」。回傳 { 欄位: { mode: 'dropdown'|'input', label } }
+function findSearchHints(pairs) {
+  const RE = /(?:透過|可以|可|以|用)\s*(下拉式?選單(?:選擇)?|選單選擇|選擇|勾選|輸入)?\s*「([^」]+)」\s*(?:來)?(?:查詢|搜尋|篩選)/;
+  const out = {};
+  (pairs || []).forEach(p => {
+    const m = String((p.rawDesc || '') + ' ' + (p.note || '')).match(RE);
+    if (!m) return;
+    out[p.field] = { mode: /下拉|選單|選擇|勾選/.test(m[1] || '') ? 'dropdown' : 'input', label: sanitizeLabel(m[2]) || p.desc };
+  });
+  return out;
+}
+
 // 從規格書的「搜尋條件／查詢條件／搜尋功能／篩選」段落，找出真的被點名的欄位。
 // 沒有依據就不要湊——湊出來的搜尋條件看似合理，實際上多半不是使用者要的。
 function findNamedSearchFields(text, props) {
