@@ -2560,7 +2560,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-10-14l';
+const APP_BUILD = '2026-10-14m';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 // skill 包 2026-10-12 快照 86 個 ＋ 2026-10-14 dev 精靈連線清單多出的 8 個（CFG_CONN_DEV_RUNTIME_ONLY）
 const CFG_SNAPSHOT_DATE = '2026-10-14';
@@ -2860,7 +2860,10 @@ function resolveLookups(tool, mainPairs, docText) {
       : keys.length !== 1 ? (keys.length ? '這張表有 ' + keys.length + ' 個「關聯主鍵」，是多段轉換，本工具不產生' : '這張表沒標出「關聯主鍵」')
       : vals.length !== 1 ? '這張表要顯示哪一欄分不出來'
       : null;
-    if (why) { unresolved.push({ ref: r.ref, why, field: users.length === 1 ? users[0].field : null }); return; }
+    // chain＝多段轉換（中間表、或有多個關聯主鍵）：依團隊決定接受顯示原始值；
+    // 其餘是規格書寫得不夠清楚，補了資訊就能自動查值，仍要列待確認
+    const chain = !users.length || (users.length === 1 && keys.length > 1);
+    if (why) { unresolved.push({ ref: r.ref, why, chain, field: users.length === 1 ? users[0].field : null }); return; }
     const conn = matchConnection(tm[1], docText);
     if (!conn.value) { unresolved.push({ ref: r.ref, why: '「' + tm[1] + '」的連線還沒確定', field: users[0].field }); return; }
     found[users[0].field] = { Connection: conn.value, Table: tm[3], KeyColumn: keys[0].field, ValueColumn: vals[0].field,
@@ -2957,11 +2960,18 @@ function buildQueryToolConfig(state, tool) {
       todos.push(`<b>查值欄位</b>：${auto.map(l => '<code>' + escapeHtml(l.Table) + '</code>').join('、')} 已自動產生代碼表查值。`
         + '貼到精靈後看右側預覽：這幾欄有正常顯示文字就完成；若顯示「欄位定義有誤」，再請工程師確認對應欄位');
     }
-    if (lookups.unresolved.length) {
-      todos.push(`<b>關聯表</b>：下列 ${lookups.unresolved.length} 張表沒有自動產生查值，相關欄位先顯示原始值：`
-        + lookups.unresolved.map(u => '<code>' + escapeHtml(u.ref) + '</code>（' + escapeHtml(u.why) + '）').join('、')
-        + '。精靈預覽會看到這些欄位顯示原始代碼；可接受就不用處理（多段轉換目前後台不好做），需要轉成文字再請工程師另外設定');
-      rows.push(['關聯表（未自動查值）', lookups.unresolved.map(u => escapeHtml(u.ref)).join('<br>'), 'warn', '顯示原始值']);
+    // 團隊決定（2026-10-14）：多段轉換的欄位先顯示原始值（如帳號編號 1025），不列待確認
+    const chainU = lookups.unresolved.filter(u => u.chain);
+    const otherU = lookups.unresolved.filter(u => !u.chain);
+    if (chainU.length) {
+      rows.push(['關聯表（顯示原始值）', chainU.map(u => escapeHtml(u.ref)).join('<br>'), 'ok',
+        '需要跨表多段轉換，依決定先顯示原始值（不轉成文字）']);
+    }
+    if (otherU.length) {
+      todos.push(`<b>關聯表</b>：下列 ${otherU.length} 張表沒有自動產生查值，相關欄位先顯示原始值：`
+        + otherU.map(u => '<code>' + escapeHtml(u.ref) + '</code>（' + escapeHtml(u.why) + '）').join('、')
+        + '。補上括號裡缺的資訊就能自動查值；可接受顯示原始值就不用處理');
+      rows.push(['關聯表（未自動查值）', otherU.map(u => escapeHtml(u.ref)).join('<br>'), 'warn', '顯示原始值，補資訊後可自動查值']);
     }
   }
 
