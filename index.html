@@ -2445,10 +2445,10 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-09-04m';
+const APP_BUILD = '2026-10-14a';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
-const CFG_SNAPSHOT_DATE = '2026-09-01';
-const CFG_AUTH_SNAPSHOT_DATE = '2026-09-03';
+const CFG_SNAPSHOT_DATE = '2026-10-12';
+const CFG_AUTH_SNAPSHOT_DATE = '2026-10-12';
 
 // MainConnection → BrowseAuthority 對照（known-browse-authority-snapshot.md 第1節）
 // 這份本質是「猜」不是「查」——權限字串沒有地方能查到新工具「應該」用哪個，
@@ -2464,6 +2464,7 @@ const CFG_AUTHORITY_MAP = {
   PartyGo: 'GAME_PARTYGO.LOG_BROWSE',
   GameTowerLogStar31: 'GAME_STAR31.LOG_BROWSE',
   GameTowerTmd: 'GAME_GOLD.LOG_BROWSE',
+  GameTowerSlaveLog3Star31: 'GAME_STAR31.LOG_BROWSE',
   PwsWeb: 'GAME_STAR31.LOG_BROWSE',
   Slam888Log: 'GAME_SLAM777.LOG_BROWSE',
   TadaJlBankCenterMain: 'BANK_CENTER.RECORD_BROWSE',
@@ -2473,6 +2474,8 @@ const CFG_AUTHORITY_MAP = {
   GameTowerCamDonut: 'GAME_DONUT.LOG_BROWSE',
   GameTowerSlaveMember: 'GAME_STAR31.LOG_BROWSE',
   GameTowerWeb: 'GAME_GOLD.LOG_BROWSE',
+  // 541 一筆；同表的 479（GameTowerSlaveMember）卻是 GAME_STAR31——會員庫類權限碼無法單由連線名推測
+  GameTowerMember: 'GAME_GOLD.LOG_BROWSE',
   JoyaJlBankCenterMain: 'BANK_CENTER.RECORD_BROWSE',
   MemberCenterMain: 'MEMBER.ACCOUNT_DATA_BROWSE',
   Slam888Slam: 'GAME_SLAM777.LOG_BROWSE',
@@ -2488,7 +2491,7 @@ const CFG_AUTHORITY_PATTERNS = [
   [/Tmd/i, 'GAME_GOLD.LOG_BROWSE'],
   [/Donut/i, 'GAME_DONUT.LOG_BROWSE'],
   [/Slam777|Slam888/i, 'GAME_SLAM777.LOG_BROWSE'],
-  [/PartyGo(?!Config|Credit)/i, 'GAME_PARTYGO.LOG_BROWSE'],
+  [/PartyGo(?!Config|Credit|Tableau|MemberAccount)/i, 'GAME_PARTYGO.LOG_BROWSE'],
 ];
 function inferBrowseAuthority(conn) {
   if (!conn || /^TODO_/.test(conn)) {
@@ -2497,31 +2500,55 @@ function inferBrowseAuthority(conn) {
   if (CFG_AUTHORITY_MAP[conn]) {
     return { value: CFG_AUTHORITY_MAP[conn], note: '依快照中同連線既有工具的慣例（建議值）', level: 'ok' };
   }
+  // 會員庫類唯讀副本（SlaveMemberCenterMain、FormalGameTowerSlaveMember…）沒有工具實例佐證，不套樣式
+  if (/Slave/i.test(conn) && /Member/i.test(conn)) {
+    return { value: 'TODO_瀏覽權限字串（連線' + conn + '無既有樣式可循）', note: '會員庫類副本連線沒有工具實例可佐證，不推測', level: 'warn' };
+  }
   for (const [re, v] of CFG_AUTHORITY_PATTERNS) {
     if (re.test(conn)) return { value: v, note: '快照無此連線，依命名樣式推測（建議值）', level: 'ok' };
   }
   // 套不上樣式就別硬猜：猜錯可能誤植成語意不符的既有權限碼，讓不該看到的角色看得到
   return { value: 'TODO_瀏覽權限字串（連線' + conn + '無既有樣式可循）', note: '無既有樣式可循，不硬猜', level: 'warn' };
 }
-const CFG_TRANSFORMS = ['DIRECT', 'CODE_TABLE', 'JOIN_LOOKUP', 'CUSTOM_MAPPING', 'CUSTOM_SQL'];
+const CFG_TRANSFORMS = ['DIRECT', 'CODE_TABLE', 'JOIN_LOOKUP', 'CUSTOM_MAPPING', 'CUSTOM_SQL',
+  'EXISTENCE_CHECK', 'CHAINED_LOOKUP', 'RELATED_VALUE_LOOKUP'];
 const CFG_OPERATORS = ['EQ', 'NE', 'GT', 'GE', 'LT', 'LE', 'LIKE', 'IN', 'BETWEEN',
-  'CUSTOM_SQL', 'CUSTOM_SQL_CHOICE', 'CUSTOM_SQL_DATE_RANGE', 'QUERY_ACCOUNT', 'QUERY_NICKNAME'];
-const CFG_BLACKLIST = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|EXEC|EXECUTE|MERGE|GRANT|REVOKE|BACKUP|RESTORE|SHUTDOWN)\b|xp_|sp_/i;
-const CFG_CONNECTIONS = ['BankCenterMain','CamWeb','DataVipCare','DevelopGameTowerWebLog','EuSsGameTowerCommon',
-'EuSsGameTowerMember','EuVfGameTowerCommon','EuVfGameTowerMember','FreshdeskLog','GameTower2AIODragonTycoon',
-'GameTower2AIODragonTycoon3','GameTower2AIOGura','GameTower2Cluster','GameTower2Config','GameTower2GTCasino',
-'GameTower2HappyFishI','GameTower2MJ','GameTower2Poker','GameTower2Web','GameTower3LogTmd','GameTowerAccount',
-'GameTowerAccountStar31','GameTowerAccountTmd','GameTowerBackendDonut','GameTowerBill','GameTowerCamDonut',
-'GameTowerCommon','GameTowerContest','GameTowerEdm','GameTowerEmailAgent','GameTowerGtWarehouseBackup',
+  'CUSTOM_SQL', 'CUSTOM_SQL_CHOICE', 'CUSTOM_SQL_DATE_RANGE', 'QUERY_ACCOUNT', 'QUERY_NICKNAME',
+  'MTG_PLATFORM_ACCOUNT', 'MTG_PLATFORM_ACCOUNTID', 'LOOKUP', 'SEARCH'];
+// 只有這些運算子的 Field 可寫成逗號分隔的多欄位（後端 IsMultiColumnFieldOperator）
+const CFG_MULTI_COLUMN_OPERATORS = ['SEARCH', 'IN', 'QUERY_ACCOUNT', 'QUERY_NICKNAME',
+  'MTG_PLATFORM_ACCOUNT', 'MTG_PLATFORM_ACCOUNTID', 'LOOKUP'];
+const CFG_CUSTOM_OPERATORS = ['CUSTOM_SQL', 'CUSTOM_SQL_CHOICE', 'CUSTOM_SQL_DATE_RANGE'];
+// 逐字對齊後端 CustomSqlBlacklistKeywordRegex（2026-10-05 起多 INTO／WAITFOR…等 18 個；xp_／sp_ 前有 \b，max_love_exp_needed 不誤判）
+const CFG_BLACKLIST = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|EXEC|EXECUTE|MERGE|GRANT|REVOKE|BACKUP|RESTORE|SHUTDOWN|INTO|WAITFOR|OPENROWSET|OPENQUERY|OPENDATASOURCE|OPENXML|DBCC|BULK|RECONFIGURE|KILL|DENY|CHECKPOINT|UPDATETEXT|WRITETEXT|READTEXT|DECLARE|SETUSER|REVERT)\b|\bxp_|\bsp_/i;
+// 後端以「區分大小寫」比對連線名稱，引用時拼寫要與清單完全一致（GameTowerEMail ≠ GameTowerEmail）
+const CFG_CONNECTIONS = [
+'BankCenterMain','CamWeb','DataVipCare','DevelopGameTowerWebLog','DonutBackend',
+'EuSsGameTowerCommon','EuSsGameTowerMember','EuVfGameTowerCommon','EuVfGameTowerMember','FormalGameTowerSlaveMember',
+'FreshdeskLog','GameTower2AIODragonTycoon','GameTower2AIODragonTycoon3','GameTower2AIOGura','GameTower2Cluster',
+'GameTower2Config','GameTower2GTCasino','GameTower2HappyFishI','GameTower2MJ','GameTower2Poker',
+'GameTower2Web','GameTower3LogTmd','GameTowerAccount','GameTowerAccountStar31','GameTowerAccountTmd',
+'GameTowerBackendDonut','GameTowerBill','GameTowerCamDonut','GameTowerCommon','GameTowerContest',
+'GameTowerCreditDonut','GameTowerEdm','GameTowerEMail','GameTowerEmailAgent','GameTowerGtWarehouseBackup',
 'GameTowerLobbyGameStar31','GameTowerLog2Star31','GameTowerLog3Star31','GameTowerLogDonut','GameTowerLogStar31',
 'GameTowerLogTmd','GameTowerMember','GameTowerMemberMaster','GameTowerMJ','GameTowerPartyGo',
-'GameTowerPartyGoConfig','GameTowerPartyGoCredit','GameTowerSlaveMember','GameTowerTmd','GameTowerWarehouse',
-'GameTowerWeb','GameTowerWebLog','GtDataWarehouse','JoyaJlBankCenterMain','KhPsGameTowerCommon',
-'KhPsGameTowerMember','Language','MemberCenterMain','MessageCenterMain','Nft','PartyGo','PartyGoLog',
-'PhPsGameTowerCommon','PhPsGameTowerMember','PwsWeb','ServiceCenterMain','Slam777Config','Slam777Log',
-'Slam888Backend','Slam888Cam','Slam888Config','Slam888Log','Slam888Slam','SlaveMemberCenterMain',
-'TadaJlBankCenterMain','ThIgBankCenterMain','VnIgBankCenterMain','VnJlBankCenterMain','We5Do','Wedo5Do',
-'Wedo5DoBill','Wedo5Wedo5'];
+'GameTowerPartyGoConfig','GameTowerPartyGoCredit','GameTowerPartyGoTableau','GameTowerSlaveLog3Star31','GameTowerSlaveMember',
+'GameTowerTmd','GameTowerWarehouse','GameTowerWeb','GameTowerWebLog','GtDataWarehouse',
+'InternalWebMain','JoyaJlBankCenterMain','KhPsGameTowerCommon','KhPsGameTowerMember','Language',
+'MemberCenterMain','MessageCenterMain','Nft','PartyGo','PartyGoLog',
+'PartyGoMemberAccount','PhPsGameTowerCommon','PhPsGameTowerMember','PwsWeb','ServiceCenterMain',
+'Slam777Config','Slam777Log','Slam888Backend','Slam888Cam','Slam888Config',
+'Slam888Log','Slam888Slam','SlaveMemberCenterMain','TadaJlBankCenterMain','ThIgBankCenterMain',
+'VnIgBankCenterMain','VnJlBankCenterMain','We5Do','Wedo5Do','Wedo5DoBill',
+'Wedo5Wedo5'];
+// 各環境可用性（快照有 ≠ 二測／正式也有）。develop:Development 有、但 test:Staging 沒有的 15 把；
+// master:Production 另外再缺 6 把。選到這些連線時，待確認清單要提醒上線前先合併 ApiConfig 設定。
+const CFG_CONN_NOT_IN_STAGING = ['FormalGameTowerSlaveMember','GameTower2AIODragonTycoon','GameTower2AIODragonTycoon3',
+  'GameTower2AIOGura','GameTowerLobbyGameStar31','GameTowerLogDonut','GameTowerPartyGoTableau','GameTowerSlaveLog3Star31',
+  'InternalWebMain','JoyaJlBankCenterMain','Slam888Log','TadaJlBankCenterMain','ThIgBankCenterMain','VnIgBankCenterMain',
+  'VnJlBankCenterMain'];
+const CFG_CONN_NOT_IN_PROD = CFG_CONN_NOT_IN_STAGING.concat(['DonutBackend','GameTowerBackendDonut','GameTowerCamDonut',
+  'GameTowerCreditDonut','GameTowerEMail','PartyGoMemberAccount']);
 
 window._cfgPack = {
   name: CFG_PACK_VERSION,
@@ -2549,7 +2576,9 @@ function renderBuiltinRules() {
     `<li>Transform 白名單 <b>${p.transforms.length}</b> 種：${p.transforms.join(' / ')}</li>` +
     `<li>Operator 白名單 <b>${p.operators.length}</b> 種（<code>IS_NULL</code>／<code>HISTORY_SELECT</code> 依規範不產生）</li>` +
     `<li>連線識別碼快照 <b>${p.connections.length}</b> 組（擷取於 ${p.snapDate}）——<b>只有完全相符才自動填</b>，其餘列候選並標 <code>TODO_</code></li>` +
-    `<li>CustomSql 黑名單（分號／DML／DDL／<code>xp_</code>／<code>sp_</code>）、Field 全域唯一、ExportRequiredField 一致性</li>` +
+    `<li>CustomSql 黑名單（分號／DML／DDL／<code>INTO</code>／<code>WAITFOR</code>／<code>OPENROWSET</code>／<code>DECLARE</code> 等 33 字／<code>xp_</code>／<code>sp_</code>）、Field 全域唯一、ExportRequiredField 對得到搜尋條件的輸入鍵</li>` +
+    `<li>搜尋條件只能用主表真實欄位（佔位欄名／別名會讓<b>整支工具打不開</b>）；多欄位 Field 只限 ${CFG_MULTI_COLUMN_OPERATORS.length} 種運算子</li>` +
+    `<li>連線區分大小寫；只在 dev 設定的連線（二測缺 ${CFG_CONN_NOT_IN_STAGING.length} 把、正式缺 ${CFG_CONN_NOT_IN_PROD.length} 把）會提醒上線前先合併設定</li>` +
     `<li><b>ViewDataSetting／SearchSetting／RelatedTableSetting 會序列化成字串</b>（schema 明列最易錯的一步）</li>` +
     `<li><b>BrowseAuthority</b> 依 ${CFG_AUTH_SNAPSHOT_DATE} 權限快照（${Object.keys(CFG_AUTHORITY_MAP).length} 組）＋命名樣式推薦建議值（含 Tmd→<code>GAME_GOLD</code>、Slam888→<code>GAME_SLAM777</code> 兩個陷阱）；套不上樣式就留 <code>TODO_</code> 不硬猜</li>` +
     `<li>快照會過期：清單裡沒有<b>不代表不存在</b>，標 <code>TODO_</code> 交工程師確認，不自行發明識別碼</li>` +
@@ -2704,6 +2733,14 @@ function buildQueryToolConfig(state, tool) {
     mainConnection = 'TODO_未指定資料來源';
     todos.push(`<b>MainConnection</b>：規格書未寫出可辨識的資料庫/連線，或不在 ${pack.snapDate} 的快照內，需工程師確認實際連線識別碼`);
     rows.push(['資料來源', 'MainConnection=<code>TODO_未指定資料來源</code>', 'warn', '快照查無對應']);
+  }
+
+  // 1.5) 快照有 ≠ 每個環境都有：只在 dev 設定的連線，上二測／正式前要先合併 ApiConfig
+  if (CFG_CONN_NOT_IN_PROD.indexOf(mainConnection) >= 0) {
+    const where = CFG_CONN_NOT_IN_STAGING.indexOf(mainConnection) >= 0 ? '二測與正式' : '正式';
+    todos.push(`<b>MainConnection</b>：<code>${escapeHtml(mainConnection)}</code> 目前只在 dev 設定，<b>${where}環境沒有</b>。`
+      + '上線前需先把這個連線設定合併到 ApiConfig 的 test／master，否則在該環境執行會失敗');
+    rows.push(['連線環境', `<code>${escapeHtml(mainConnection)}</code>`, 'warn', `${where}環境尚無此連線（${CFG_SNAPSHOT_DATE} 快照）`]);
   }
 
   // 2) 主資料表
@@ -2949,6 +2986,16 @@ function validateConfig(items) {
       const op = (nd.Operator || '').toUpperCase();
       if (!op) errors.push(`${L}搜尋條件「${nd.Field}」未指定 Operator`);
       else if (pack.operators.indexOf(op) < 0) errors.push(`${L}搜尋條件「${nd.Field}」Operator=${op} 不在白名單`);
+      // 搜尋條件的 Field 對不到真實欄位 → 整支工具 execute／export 全部失敗（顯示欄位只是那一欄看不到資料）
+      if (CFG_CUSTOM_OPERATORS.indexOf(op) < 0) {
+        const fs = String(nd.Field || '').split(',').map(s => s.trim());
+        if (fs.length > 1 && CFG_MULTI_COLUMN_OPERATORS.indexOf(op) < 0)
+          errors.push(`${L}搜尋條件「${nd.Field}」Operator=${op} 不支援逗號分隔的多欄位`);
+        fs.forEach(f => {
+          if (/^Field\d+$/.test(f) || /^TODO_/.test(f) || f.indexOf('.') >= 0)
+            errors.push(`${L}搜尋條件「${f}」不是主表真實欄位（佔位／別名），整支工具會打不開`);
+        });
+      }
       if (op === 'CUSTOM_SQL' && !nd.CustomSql) errors.push(`${L}搜尋條件「${nd.Field}」缺 CustomSql`);
       if (op === 'CUSTOM_SQL_DATE_RANGE' && String(nd.CustomSql || '').indexOf('@time') < 0)
         errors.push(`${L}搜尋條件「${nd.Field}」CUSTOM_SQL_DATE_RANGE 的 CustomSql 必須含 @time`);
@@ -2961,14 +3008,19 @@ function validateConfig(items) {
       if (nd.CustomSql && pack.blacklist.test(nd.CustomSql)) errors.push(`${L}搜尋條件「${nd.Field}」CustomSql 觸犯黑名單`);
     });
     walk(search);
-    // ExportRequiredField 必須指向 SearchSetting 裡存在的 Field
+    // ExportRequiredField 必須對得到某個搜尋條件的「有效輸入鍵」（有 InputKey 取 InputKey，否則取 Field；區分大小寫）
+    // 匯入端點只檢查非空白，對不到要到第一次匯出才會被拒絕
     if (it.ExportFlag) {
       if (!it.ExportRequiredField) errors.push(`${L}ExportFlag=true 但 ExportRequiredField 空白`);
       else {
-        const fields = [];
-        (function collect(n) { (n || []).forEach(x => { if (x.Field) fields.push(x.Field); collect(x.Children); }); })(search);
-        if (fields.indexOf(it.ExportRequiredField) < 0)
-          errors.push(`${L}ExportRequiredField「${it.ExportRequiredField}」不在 SearchSetting 的 Field 內`);
+        const keys = [];
+        (function collect(n) { (n || []).forEach(x => {
+          const k = x.InputKey || x.Field;
+          if (k && (x.Type || 'CONDITION') !== 'GROUP') keys.push(k);
+          collect(x.Children);
+        }); })(search);
+        if (keys.indexOf(it.ExportRequiredField) < 0)
+          errors.push(`${L}ExportRequiredField「${it.ExportRequiredField}」對不到任何搜尋條件的輸入鍵（有 InputKey 要填 InputKey）`);
       }
     }
   });
