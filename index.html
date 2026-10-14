@@ -2552,7 +2552,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-10-14f';
+const APP_BUILD = '2026-10-14g';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-10-12';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-10-12';
@@ -2600,21 +2600,15 @@ const CFG_AUTHORITY_PATTERNS = [
   [/Slam777|Slam888/i, 'GAME_SLAM777.LOG_BROWSE'],
   [/PartyGo(?!Config|Credit|Tableau|MemberAccount)/i, 'GAME_PARTYGO.LOG_BROWSE'],
 ];
-// 使用者明確決定的權限碼，優先於快照與樣式。快照記錄的是「既有工具實際用什麼」，這裡是「新工具要用什麼」，
-// 兩者不同時以這裡為準，但清單要講清楚跟既有工具不一樣。
-// 大滿貫：2026-10-14 miachan 決定新工具一律 GAME_SLAM888.LOG_BROWSE
-// （既有 Slam777Log 49 支、Slam888* 3 支用的是 GAME_SLAM777.LOG_BROWSE，skill 包也把 SLAM888 列為陷阱）。
-const CFG_AUTHORITY_DECISIONS = [
-  [/Slam777|Slam888/i, 'GAME_SLAM888.LOG_BROWSE',
-    '依使用者 2026-10-14 決定：大滿貫新工具一律用此權限碼。注意既有大滿貫工具用的是 GAME_SLAM777.LOG_BROWSE，'
-    + '請確認編導、運營角色已擁有 GAME_SLAM888.LOG_BROWSE，否則工具匯入後沒人看得到'],
-];
+// 後台精靈「瀏覽權限字串」下拉選單裡的權限碼（2026-10-14 在 dev 精靈確認，與 skill 包記載的 9 個相同）。
+// 權限是每支工具各自決定的（使用者在「📍 選單位置與權限」指定）；這裡只用來提醒：
+// 指定了清單以外的新碼，要先確認角色已擁有，否則工具建好後沒人看得到。
+const CFG_KNOWN_AUTHORITIES = ['BANK_CENTER.RECORD_BROWSE', 'CONFIG.VERSION_NUMBER_BROWSE', 'GAME_DONUT.LOG_BROWSE',
+  'GAME_GOLD.LOG_BROWSE', 'GAME_PARTYGO.LOG_BROWSE', 'GAME_SLAM777.LOG_BROWSE', 'GAME_STAR31.EXTRA_BUFFER_BROWSE',
+  'GAME_STAR31.LOG_BROWSE', 'MEMBER.ACCOUNT_DATA_BROWSE'];
 function inferBrowseAuthority(conn) {
   if (!conn || /^TODO_/.test(conn)) {
     return { value: 'TODO_瀏覽權限字串', note: '連線尚未確定，無法推薦權限字串', level: 'warn' };
-  }
-  for (const [re, v, why] of CFG_AUTHORITY_DECISIONS) {
-    if (re.test(conn)) return { value: v, note: why, level: 'ok' };
   }
   if (CFG_AUTHORITY_MAP[conn]) {
     return { value: CFG_AUTHORITY_MAP[conn], note: '依快照中同連線既有工具的慣例（建議值）', level: 'ok' };
@@ -2700,7 +2694,7 @@ function renderBuiltinRules() {
     `<li>連線區分大小寫；只在 dev 設定的連線（二測缺 ${CFG_CONN_NOT_IN_STAGING.length} 把、正式缺 ${CFG_CONN_NOT_IN_PROD.length} 把）會提醒上線前先合併設定</li>` +
     `<li><b>ViewDataSetting／SearchSetting／RelatedTableSetting 會序列化成字串</b>（schema 明列最易錯的一步）</li>` +
     `<li><b>BrowseAuthority</b> 依 ${CFG_AUTH_SNAPSHOT_DATE} 權限快照（${Object.keys(CFG_AUTHORITY_MAP).length} 組）＋命名樣式推薦建議值（含 Tmd→<code>GAME_GOLD</code> 陷阱）；套不上樣式就留 <code>TODO_</code> 不硬猜</li>` +
-    `<li>大滿貫（<code>Slam777*</code>／<code>Slam888*</code>）新工具一律用 <code>GAME_SLAM888.LOG_BROWSE</code>（2026-10-14 使用者決定；既有大滿貫工具用的是 <code>GAME_SLAM777</code>）</li>` +
+    `<li>權限依每支工具決定：可在「📍 選單位置與權限」逐支指定；指定了既有 ${CFG_KNOWN_AUTHORITIES.length} 個以外的權限碼會提醒確認角色</li>` +
     `<li>快照會過期：清單裡沒有<b>不代表不存在</b>，標 <code>TODO_</code> 交工程師確認，不自行發明識別碼</li>` +
     `<li>不產出這幾類雜訊：章節說明被當成欄位、<code>FieldN</code> 佔位欄名、拿顯示欄位硬湊搜尋條件</li>` +
     '</ul>';
@@ -2950,25 +2944,42 @@ function buildQueryToolConfig(state, tool) {
     }
   }
 
-  // 3) 權限字串（依 known-browse-authority-snapshot 推薦，但角色範圍仍要人工確認）
-  const auth = inferBrowseAuthority(mainConnection);
-  const authority = auth.value;
-  if (auth.level === 'ok') {
-    todos.push(`<b>BrowseAuthority</b>：已填入建議值 <code>${escapeHtml(authority)}</code>（${escapeHtml(auth.note)}）。<b>這是依同類工具慣例推薦，不是查出來的</b>——請確認這個工具該開放給哪些角色`);
-    rows.push(['瀏覽權限', `BrowseAuthority=<code>${escapeHtml(authority)}</code>`, 'ok', auth.note + '，仍需確認角色範圍']);
-  } else {
-    todos.push(`<b>BrowseAuthority</b>：${escapeHtml(auth.note)}，需工程師/主管指定（請勿自行發明權碼）`);
-    rows.push(['瀏覽權限', `BrowseAuthority=<code>${escapeHtml(authority)}</code>`, 'warn', auth.note]);
-  }
-
-  // 4) 選單位置：路徑從規格書帶出來，MenuNo 由使用者填（API 只吃數字）
+  // 每支工具自己的選單位置與權限（使用者在「📍 選單位置與權限」可逐支改）
   const mKey = overrideKey(tool);
   const mi = (window._menuInfo = window._menuInfo || {});
   if (!mi[mKey]) {
     // 先查「後端選單規劃」對照表（可能在別的分頁），沒有才退回逐行掃描
     const table = (window._menuTable = window._menuTable || extractMenuPathTable(state));
-    mi[mKey] = { path: menuPathFor(tool, table) || extractMenuPath(text, state.flatText), menuNo: 0 };
+    mi[mKey] = { path: menuPathFor(tool, table) || extractMenuPath(text, state.flatText), menuNo: 0, authority: '' };
   }
+
+  // 3) 權限字串：權限是每支工具的業務決定。使用者有指定就用指定的；
+  //    沒指定才依 known-browse-authority-snapshot 推薦（同連線既有工具的慣例），角色範圍仍要人工確認
+  const specAuth = ((text.match(/工具權限\s*[|｜:：]\s*([^|\n]+)/) || (state.flatText || '').match(/工具權限\s*[|｜:：]\s*([^|\n]+)/) || [])[1] || '').trim();
+  const specAuthNote = specAuth ? `（規格書寫的權限需求：「${escapeHtml(specAuth)}」）` : '';
+  const userAuth = (mi[mKey].authority || '').trim();
+  const auth = userAuth
+    ? { value: userAuth, note: '使用者指定', level: 'ok' }
+    : inferBrowseAuthority(mainConnection);
+  const authority = auth.value;
+  if (userAuth) {
+    if (CFG_KNOWN_AUTHORITIES.indexOf(userAuth) < 0) {
+      todos.push(`<b>BrowseAuthority</b>：已指定 <code>${escapeHtml(userAuth)}</code>，<b>不在後台既有的 ${CFG_KNOWN_AUTHORITIES.length} 個權限碼內</b>。`
+        + '後台存得進去，但若沒有任何角色擁有這個權限碼，工具建好後會沒人看得到——請先確認權限系統已建立並指派給該看的角色' + specAuthNote);
+      rows.push(['瀏覽權限', `BrowseAuthority=<code>${escapeHtml(userAuth)}</code>`, 'warn', '使用者指定的新權限碼，需確認角色已擁有']);
+    } else {
+      rows.push(['瀏覽權限', `BrowseAuthority=<code>${escapeHtml(userAuth)}</code>`, 'ok', '使用者指定']);
+    }
+  } else if (auth.level === 'ok') {
+    todos.push(`<b>BrowseAuthority</b>：已填入建議值 <code>${escapeHtml(authority)}</code>（${escapeHtml(auth.note)}）。<b>這是依同類工具慣例推薦，不是查出來的</b>——`
+      + '請確認這個工具該開放給哪些角色；要用別的權限碼，可在「📍 選單位置與權限」直接改' + specAuthNote);
+    rows.push(['瀏覽權限', `BrowseAuthority=<code>${escapeHtml(authority)}</code>`, 'ok', auth.note + '，仍需確認角色範圍']);
+  } else {
+    todos.push(`<b>BrowseAuthority</b>：${escapeHtml(auth.note)}，需工程師/主管指定（可在「📍 選單位置與權限」直接填）` + specAuthNote);
+    rows.push(['瀏覽權限', `BrowseAuthority=<code>${escapeHtml(authority)}</code>`, 'warn', auth.note]);
+  }
+
+  // 4) 選單位置：路徑從規格書帶出來，MenuNo 由使用者填（API 只吃數字）
   const menuPath = mi[mKey].path || '';
   const menuNo = mi[mKey].menuNo || 0;
   if (menuNo > 0) {
@@ -3332,8 +3343,8 @@ function menuInfo(tool) {
 }
 function setMenuInfo(k, field, val) {
   const m = (window._menuInfo = window._menuInfo || {});
-  m[k] = m[k] || { path: '', menuNo: 0 };
-  m[k][field] = field === 'menuNo' ? (parseInt(val, 10) || 0) : val;
+  m[k] = m[k] || { path: '', menuNo: 0, authority: '' };
+  m[k][field] = field === 'menuNo' ? (parseInt(val, 10) || 0) : String(val || '').trim();
   runConfigGeneration();
 }
 
@@ -3341,22 +3352,36 @@ function renderMenuEditor(pickedTools, state) {
   const el = document.getElementById('cfgMenu');
   if (!el) return;
   if (!pickedTools.length) { el.innerHTML = ''; return; }
+  const items = (window._cfgOut && window._cfgOut.items) || [];
   el.innerHTML =
-    '<div class="cp-head">📍 選單位置（工具要掛在後台選單的哪裡）</div>'
+    '<div class="cp-head">📍 選單位置與權限（每支工具各自設定）</div>'
     + '<div class="cp-sub">已從規格書自動帶入，可直接改。<b>匯入檔只能填數字 MenuNo</b>（後台選單節點編號），所以路徑會寫進交付說明給工程師；'
-    + '若你已經知道節點編號，直接填在右邊，就不用再標待確認。</div>'
+    + '若你已經知道節點編號，直接填在右邊，就不用再標待確認。<br>'
+    + '<b>權限</b>留空＝用建議值（依同連線既有工具的慣例）；每支工具該開放給誰不一樣，請依這支工具的需求填，可從下拉挑既有權限碼或直接輸入。</div>'
+    + '<datalist id="authList">' + CFG_KNOWN_AUTHORITIES.map(a => `<option value="${escapeHtml(a)}">`).join('') + '</datalist>'
     + pickedTools.map(t => {
         const k = overrideKey(t);
+        const ks = escapeHtml(k).replace(/'/g, "\\'");
         const mi = (window._menuInfo || {})[k] || {};
+        const it = items.find(x => x.ToolName === t.name);
+        const suggested = it && !mi.authority ? it.BrowseAuthority : '';
         return `<div class="mn-row">
           <span class="mn-name">${escapeHtml(t.name)}</span>
           <input class="mn-path" type="text" placeholder="如：遊戲工具 > 大滿貫 > 設定工具 > 活動類相關設定"
                  value="${escapeHtml(mi.path || '')}"
-                 onchange="setMenuInfo('${escapeHtml(k).replace(/'/g, "\\'")}','path',this.value)">
+                 onchange="setMenuInfo('${ks}','path',this.value)">
           <span class="mn-lbl">MenuNo</span>
           <input class="mn-no" type="number" min="0" placeholder="0"
                  value="${mi.menuNo || ''}"
-                 onchange="setMenuInfo('${escapeHtml(k).replace(/'/g, "\\'")}','menuNo',this.value)">
+                 onchange="setMenuInfo('${ks}','menuNo',this.value)">
+        </div>
+        <div class="mn-row">
+          <span class="mn-name"></span>
+          <span class="mn-lbl">權限</span>
+          <input class="mn-path mn-auth" type="text" list="authList"
+                 placeholder="${escapeHtml(suggested ? '建議：' + suggested : '留空＝用建議值')}"
+                 value="${escapeHtml(mi.authority || '')}"
+                 onchange="setMenuInfo('${ks}','authority',this.value)">
         </div>`;
       }).join('');
 }
