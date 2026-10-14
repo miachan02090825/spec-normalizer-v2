@@ -2157,7 +2157,8 @@ function extractToolSections(state) {
           cur = s;
           sections.push(s);
         } else if (cur && s.tableRef) {
-          cur.related.push({ ref: s.tableRef, note: decl.notes[s.tableKey] || '' });
+          // 保留關聯表自己的欄位定義：用來找「關聯主鍵」與「直接顯示」的欄位，自動產生代碼表查值
+          cur.related.push({ ref: s.tableRef, note: decl.notes[s.tableKey] || '', flatText: s.flatText });
         } else {
           sections.push(s);
         }
@@ -2551,7 +2552,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-10-14e';
+const APP_BUILD = '2026-10-14f';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-10-12';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-10-12';
@@ -2824,6 +2825,42 @@ function cfgAlignFor(p) {
   return 'LEFT';
 }
 
+// ── 關聯表 → 代碼表查值（Transform=CODE_TABLE）──
+// 規格書常這樣寫：主表 [game_id] 說明「可透過遊戲名稱對照表[backend].[dbo].[game]取得相應遊戲名稱」，
+// 關聯表 [id]「關聯主鍵」、[name]「直接顯示對應文案即可」。這就是一段代碼表查值：
+// game_id 的值拿去 game.id 對，顯示 game.name。
+// CODE_TABLE 每欄自帶 Connection、到該連線另外查，所以主表跟關聯表在不同伺服器也可以；
+// 設錯只有那一欄顯示「欄位定義有誤」，不會讓整支工具壞掉。
+// 只在「恰好一個關聯主鍵＋恰好一個要顯示的欄位、而且主表有欄位點名這張表」時產生；
+// 多段轉換（account_id → user → Member_Account → Member_GtAccount）不硬做，留原始值。
+const LOOKUP_KEY_RE = /關聯主鍵|關聯鍵|主鍵|對應鍵/;
+function resolveLookups(tool, mainPairs, docText) {
+  const found = {}, unresolved = [];
+  (tool && tool.related || []).forEach(r => {
+    const tm = r.ref.match(TABLE_LINE);
+    const refNorm = r.ref.replace(/\s+/g, '');
+    const users = mainPairs.filter(p => (p.rawDesc + ' ' + p.note).replace(/\s+/g, '').indexOf(refNorm) >= 0);
+    const pairs = r.flatText ? extractFieldPairs(r.flatText) : [];
+    const keys = pairs.filter(p => LOOKUP_KEY_RE.test(p.rawDesc + ' ' + p.note));
+    let vals = pairs.filter(p => keys.indexOf(p) < 0 && !p.hidden);
+    if (vals.length > 1) {
+      const shown = vals.filter(p => /直接顯示|顯示/.test(p.note));
+      if (shown.length) vals = shown;
+    }
+    const why = !users.length ? '主表沒有欄位直接對到這張表（可能是多段轉換的中間表）'
+      : users.length > 1 ? '主表有多個欄位提到這張表，分不出是哪一個'
+      : keys.length !== 1 ? (keys.length ? '這張表有 ' + keys.length + ' 個「關聯主鍵」，是多段轉換，本工具不產生' : '這張表沒標出「關聯主鍵」')
+      : vals.length !== 1 ? '這張表要顯示哪一欄分不出來'
+      : null;
+    if (why) { unresolved.push({ ref: r.ref, why, field: users.length === 1 ? users[0].field : null }); return; }
+    const conn = matchConnection(tm[1], docText);
+    if (!conn.value) { unresolved.push({ ref: r.ref, why: '「' + tm[1] + '」的連線還沒確定', field: users[0].field }); return; }
+    found[users[0].field] = { Connection: conn.value, Table: tm[3], KeyColumn: keys[0].field, ValueColumn: vals[0].field,
+      title: vals[0].desc, ref: r.ref, mainNote: users[0].rawDesc + ' ' + users[0].note };
+  });
+  return { found, unresolved };
+}
+
 // ── 組裝設定檔 ──
 function buildQueryToolConfig(state, tool) {
   const pack = window._cfgPack;
@@ -2880,8 +2917,13 @@ function buildQueryToolConfig(state, tool) {
   else { todos.push('<b>MainTable</b>：規格書沒有寫出資料表名稱，需補'); rows.push(['資料表', 'MainTable=<code>TODO_未指定資料表</code>', 'warn', '規格書未寫']); }
 
   // 2.5) 欄位若來自多張表（Table.column 形式且表名不是主表）→ 需要 RelatedTableSetting，本工具不產
+  // 先拿掉網址與主機名稱：「https://admin3.gametower.com.tw」「db-gt-test24.gametower.com.tw\\GameTower_Account」
+  // 會被當成 admin3.xxx、test24.xxx 這種「表.欄位」（0908GT、0707 都誤報過）
+  const qualScan = text
+    .replace(/https?:\/\/[^\s|]+/gi, ' ')
+    .replace(/[\w-]+(?:\.[\w-]+)*\.(?:com|net|org|io|tw|cn|jp)\b[^\s|]*/gi, ' ');
   const qualifiers = Array.from(new Set(
-    (text.match(/\b([A-Za-z_][A-Za-z0-9_]*)\.[A-Za-z_][A-Za-z0-9_]*/g) || [])
+    (qualScan.match(/\b([A-Za-z_][A-Za-z0-9_]*)\.[A-Za-z_][A-Za-z0-9_]*/g) || [])
       .map(s => s.split('.')[0])
   )).filter(q => q !== mainTable && !/^(dbo|www|https?|com|tw)$/i.test(q)
                  && !new RegExp(q + '$', 'i').test(mainTable));
@@ -2891,13 +2933,21 @@ function buildQueryToolConfig(state, tool) {
     rows.push(['跨表欄位', qualifiers.map(escapeHtml).join('、'), 'warn', '需 RelatedTableSetting，本工具未產生']);
   }
 
-  // 2.6) 規格書宣告的關聯表（已併入本工具、不另外產工具）：本工具不產關聯設定，交工程師
+  // 2.6) 規格書宣告的關聯表（已併入本工具、不另外產工具）：
+  //      能確定的一段式對照 → 自動產生代碼表查值；其餘列出原因，該欄先顯示原始值
+  const lookups = resolveLookups(tool, extractFieldPairs(text), (state.flatText || '') + '\n' + text);
   if (tool && tool.related && tool.related.length) {
-    const list = tool.related.map(r => '<code>' + escapeHtml(r.ref) + '</code>' + (r.note ? '（' + escapeHtml(r.note) + '）' : ''));
-    todos.push(`<b>關聯表</b>：規格書寫明這個工具要從下列 ${tool.related.length} 張表取值，<b>它們不是獨立工具，已併入本工具</b>：`
-      + list.join('、') + '。本工具不會產生 <code>RelatedTableSetting</code>／跨資料庫查值設定，'
-      + '請工程師依規格書的「關聯主鍵」說明補上（不同資料庫的表需用 <code>RELATED_VALUE_LOOKUP</code> 或 <code>CUSTOM_SQL</code>＋<code>SqlConnection</code>），否則這些欄位查不到資料');
-    rows.push(['關聯表', tool.related.map(r => escapeHtml(r.ref)).join('<br>'), 'warn', '已併入本工具，關聯設定需工程師補']);
+    const auto = Object.keys(lookups.found).map(f => lookups.found[f]);
+    if (auto.length) {
+      rows.push(['關聯表（已自動查值）', auto.map(l => escapeHtml(l.ref)).join('<br>'), 'ok',
+        '依規格書的「關聯主鍵／直接顯示」產生代碼表查值，預設對應欄位為唯一']);
+    }
+    if (lookups.unresolved.length) {
+      todos.push(`<b>關聯表</b>：下列 ${lookups.unresolved.length} 張表沒有自動產生查值，相關欄位先顯示原始值：`
+        + lookups.unresolved.map(u => '<code>' + escapeHtml(u.ref) + '</code>（' + escapeHtml(u.why) + '）').join('、')
+        + '。若需要轉成文字，請工程師另外設定（多段轉換目前後台不好做，可接受先顯示原始值就不用處理）');
+      rows.push(['關聯表（未自動查值）', lookups.unresolved.map(u => escapeHtml(u.ref)).join('<br>'), 'warn', '顯示原始值']);
+    }
   }
 
   // 3) 權限字串（依 known-browse-authority-snapshot 推薦，但角色範圍仍要人工確認）
@@ -2950,6 +3000,24 @@ function buildQueryToolConfig(state, tool) {
     while (used.has(field)) field = field + '_2';   // Field 全域唯一（schema 第3節規則1）
     used.add(field);
     if (guessed) todoFields.push(p.col);
+    const lk = !guessed && lookups.found[p.dbName];
+    if (lk) {
+      // 代碼表查值：這欄顯示的是對照表的文字（遊戲名稱），不是原始代碼
+      const spec = {
+        Field: field, Title: sanitizeLabel(lk.title) || p.col, Transform: 'CODE_TABLE',
+        CodeTable: { Connection: lk.Connection, Table: lk.Table, KeyColumn: lk.KeyColumn, ValueColumn: lk.ValueColumn },
+        ThousandSeparator: false, SpecialTransform: 'NONE', Alignment: 'LEFT', Sortable: true,
+      };
+      rows.push([`顯示「${escapeHtml(spec.Title)}」`,
+        `Field=<code>${escapeHtml(field)}</code>, Transform=CODE_TABLE → <code>${escapeHtml(lk.Connection)}</code>.${escapeHtml(lk.Table)}（${escapeHtml(lk.KeyColumn)} → ${escapeHtml(lk.ValueColumn)}）`,
+        'ok', '依規格書關聯表自動查值']);
+      // 「查詢結果需顯示「遊戲id」 & 「遊戲名稱」」：同一個 Field 只能出現一次，原始代碼那欄要另外做
+      if (/「[^」]+」\s*(?:&|＆|和|及|與|、)\s*「[^」]+」/.test(lk.mainNote)) {
+        todos.push(`<b>顯示欄位</b>：規格書要求 <code>${escapeHtml(field)}</code> 同時顯示原始值（${escapeHtml(p.col)}）與查表後的文字（${escapeHtml(spec.Title)}）。`
+          + '同一個欄位在設定檔只能出現一次，目前只顯示查表後的文字；原始值那欄需工程師另外補（例如用 <code>CUSTOM_SQL</code> 欄位）');
+      }
+      return spec;
+    }
     const spec = {
       Field: field,
       Title: p.col,
@@ -3127,6 +3195,13 @@ function validateConfig(items) {
       const t = (c.Transform || 'DIRECT').toUpperCase();
       if (pack.transforms.indexOf(t) < 0) errors.push(`${L}顯示欄位「${c.Field}」Transform=${t} 不在白名單`);
       if (t === 'CUSTOM_SQL' && !c.CustomSql) errors.push(`${L}顯示欄位「${c.Field}」CUSTOM_SQL 缺 CustomSql`);
+      if (t === 'CODE_TABLE' || t === 'JOIN_LOOKUP') {
+        const ct = (t === 'CODE_TABLE' ? c.CodeTable : c.JoinLookup) || {};
+        if (!ct.Connection || !ct.Table || !ct.KeyColumn || !ct.ValueColumn)
+          errors.push(`${L}顯示欄位「${c.Field}」${t} 的 Connection／Table／KeyColumn／ValueColumn 不可空白`);
+        else if (pack.connections.indexOf(ct.Connection) < 0)
+          errors.push(`${L}顯示欄位「${c.Field}」${t} 的連線「${ct.Connection}」不在連線快照內（後端區分大小寫）`);
+      }
       if (c.CustomSql && pack.blacklist.test(c.CustomSql)) errors.push(`${L}顯示欄位「${c.Field}」CustomSql 觸犯黑名單`);
       if (c.CustomSql && c.CustomSql.indexOf(';') >= 0) errors.push(`${L}顯示欄位「${c.Field}」CustomSql 不可含分號`);
       if (String(c.Field).indexOf('.') >= 0 && t !== 'DIRECT') errors.push(`${L}別名欄位「${c.Field}」只能 Transform=DIRECT`);
