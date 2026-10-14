@@ -2533,7 +2533,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-10-14c';
+const APP_BUILD = '2026-10-14d';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-10-12';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-10-12';
@@ -2581,9 +2581,21 @@ const CFG_AUTHORITY_PATTERNS = [
   [/Slam777|Slam888/i, 'GAME_SLAM777.LOG_BROWSE'],
   [/PartyGo(?!Config|Credit|Tableau|MemberAccount)/i, 'GAME_PARTYGO.LOG_BROWSE'],
 ];
+// 使用者明確決定的權限碼，優先於快照與樣式。快照記錄的是「既有工具實際用什麼」，這裡是「新工具要用什麼」，
+// 兩者不同時以這裡為準，但清單要講清楚跟既有工具不一樣。
+// 大滿貫：2026-10-14 miachan 決定新工具一律 GAME_SLAM888.LOG_BROWSE
+// （既有 Slam777Log 49 支、Slam888* 3 支用的是 GAME_SLAM777.LOG_BROWSE，skill 包也把 SLAM888 列為陷阱）。
+const CFG_AUTHORITY_DECISIONS = [
+  [/Slam777|Slam888/i, 'GAME_SLAM888.LOG_BROWSE',
+    '依使用者 2026-10-14 決定：大滿貫新工具一律用此權限碼。注意既有大滿貫工具用的是 GAME_SLAM777.LOG_BROWSE，'
+    + '請確認編導、運營角色已擁有 GAME_SLAM888.LOG_BROWSE，否則工具匯入後沒人看得到'],
+];
 function inferBrowseAuthority(conn) {
   if (!conn || /^TODO_/.test(conn)) {
     return { value: 'TODO_瀏覽權限字串', note: '連線尚未確定，無法推薦權限字串', level: 'warn' };
+  }
+  for (const [re, v, why] of CFG_AUTHORITY_DECISIONS) {
+    if (re.test(conn)) return { value: v, note: why, level: 'ok' };
   }
   if (CFG_AUTHORITY_MAP[conn]) {
     return { value: CFG_AUTHORITY_MAP[conn], note: '依快照中同連線既有工具的慣例（建議值）', level: 'ok' };
@@ -2668,7 +2680,8 @@ function renderBuiltinRules() {
     `<li>搜尋條件只能用主表真實欄位（佔位欄名／別名會讓<b>整支工具打不開</b>）；多欄位 Field 只限 ${CFG_MULTI_COLUMN_OPERATORS.length} 種運算子</li>` +
     `<li>連線區分大小寫；只在 dev 設定的連線（二測缺 ${CFG_CONN_NOT_IN_STAGING.length} 把、正式缺 ${CFG_CONN_NOT_IN_PROD.length} 把）會提醒上線前先合併設定</li>` +
     `<li><b>ViewDataSetting／SearchSetting／RelatedTableSetting 會序列化成字串</b>（schema 明列最易錯的一步）</li>` +
-    `<li><b>BrowseAuthority</b> 依 ${CFG_AUTH_SNAPSHOT_DATE} 權限快照（${Object.keys(CFG_AUTHORITY_MAP).length} 組）＋命名樣式推薦建議值（含 Tmd→<code>GAME_GOLD</code>、Slam888→<code>GAME_SLAM777</code> 兩個陷阱）；套不上樣式就留 <code>TODO_</code> 不硬猜</li>` +
+    `<li><b>BrowseAuthority</b> 依 ${CFG_AUTH_SNAPSHOT_DATE} 權限快照（${Object.keys(CFG_AUTHORITY_MAP).length} 組）＋命名樣式推薦建議值（含 Tmd→<code>GAME_GOLD</code> 陷阱）；套不上樣式就留 <code>TODO_</code> 不硬猜</li>` +
+    `<li>大滿貫（<code>Slam777*</code>／<code>Slam888*</code>）新工具一律用 <code>GAME_SLAM888.LOG_BROWSE</code>（2026-10-14 使用者決定；既有大滿貫工具用的是 <code>GAME_SLAM777</code>）</li>` +
     `<li>快照會過期：清單裡沒有<b>不代表不存在</b>，標 <code>TODO_</code> 交工程師確認，不自行發明識別碼</li>` +
     `<li>不產出這幾類雜訊：章節說明被當成欄位、<code>FieldN</code> 佔位欄名、拿顯示欄位硬湊搜尋條件</li>` +
     '</ul>';
@@ -2688,6 +2701,9 @@ const CFG_DB_TO_CONNECTION = {
   // MTG_PLATFORM_ACCOUNTID 讀 Slam888Slam.Member_Account（引擎程式碼的實際連線）
   'backend': { conn: 'Slam888Backend', brand: CFG_MTG_BRAND },
   'slam': { conn: 'Slam888Slam', brand: CFG_MTG_BRAND },
+  // 大滿貫的 log 連線是 Slam777Log（SKILL.md：「大滿貫(Slam777Log)用 MTG_PLATFORM_ACCOUNT」；
+  // schema.md：46 支 Slam777Log 工具使用 MTG 帳號搜尋）。2026-10-14 miachan 確認 CAMLog = Slam777Log。
+  'camlog': { conn: 'Slam777Log', brand: CFG_MTG_BRAND },
 };
 
 // ── 連線識別碼比對（語意比對，非字面相等）──
