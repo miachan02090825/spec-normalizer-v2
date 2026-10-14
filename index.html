@@ -1987,7 +1987,7 @@ function toggleFieldEditor(show) {
     + (invented ? '（DB 欄名都是推測的，請逐欄改成真實欄位名）' : '');
   document.getElementById('feRows').innerHTML = meta.props.map((p, i) => `
     <div class="fe-row">
-      <input type="checkbox" id="fe_on_${i}" checked>
+      <input type="checkbox" id="fe_on_${i}"${p.hidden ? ' title="規格書寫「' + escapeHtml(p.hiddenWhy || '') + '」，預設不顯示"' : ' checked'}>
       <input type="text" id="fe_col_${i}" value="${escapeHtml(p.col)}">
       <input type="text" id="fe_db_${i}" value="${escapeHtml(p.dbName)}"${(invented || p.guessed) ? ' style="border-color:var(--warn);background:color-mix(in srgb,var(--warn) 8%,var(--bg));" title="⚠️ 這個 DB 欄名是推測的，請改成資料表真實的欄位名"' : ''}>
       <select id="fe_type_${i}">
@@ -2306,7 +2306,7 @@ function extractFieldPairs(text) {
   const pairs = [];
   let inTable = false;
   let miss = 0;
-  let group = [], grouped = false;
+  let group = [], grouped = false, last = [];
   for (const raw of lines) {
     const line = raw.trim();
     // 說明欄的表頭不是只有「欄位說明」一種寫法（星超8 用「用途」），差一個詞整張表就抓不到
@@ -2328,25 +2328,42 @@ function extractFieldPairs(text) {
     // 中間幾個是沒有 | 的續行，說明在最後一個欄位那列。先收著，等到說明再一起輸出。
     if (raw.indexOf('|') < 0) {
       if (fm && group.length) { group.push(fm[1]); grouped = true; }
-      continue;   // 其他沒有 | 的是儲存格內換行的續行（或空行），不算「不是欄位的列」
+      // 其他沒有 | 的是儲存格內換行的續行（或空行），不算「不是欄位的列」；
+      // 續行是上一列「在工具上如何設定」的後半段，併進那幾個欄位的備註
+      else if (line) last.forEach(p => { p.note += ' ' + line; });
+      continue;
     }
     // 沒說明的欄位列：可能是一格多欄位的開頭，也可能只是規格書沒寫說明（星超8 的 Result）。
     // 後面真的接到續行欄位才算一組；否則照舊當成「不是欄位的列」。
     if (fm && !desc) {
-      group = [fm[1]]; grouped = false;
+      group = [fm[1]]; grouped = false; last = [];
       if (pairs.length && ++miss >= 3) break;
       continue;
     }
     if (fm && desc) {
       const fields = grouped ? group.concat(fm[1]) : [fm[1]];
       const label = sanitizeLabel(desc) || fm[1];
-      fields.forEach(f => pairs.push({ field: f, desc: fields.length > 1 ? sanitizeLabel(label + '(' + f + ')') || f : label }));
+      // 說明之後的格子（「在工具上如何設定」）收成備註：「無須顯示」「預設為2」都寫在這裡
+      const note = segs.slice(segs.indexOf(desc) + 1).filter(Boolean).join(' ');
+      last = fields.map(f => ({ field: f, desc: fields.length > 1 ? sanitizeLabel(label + '(' + f + ')') || f : label,
+                                rawDesc: desc, note }));
+      last.forEach(p => pairs.push(p));
       group = []; grouped = false; miss = 0;
     }
-    else { group = []; grouped = false; if (pairs.length && ++miss >= 3) break; } // 容忍儲存格內換行造成的續行
+    else { group = []; grouped = false; last = []; if (pairs.length && ++miss >= 3) break; } // 容忍儲存格內換行造成的續行
   }
+  // 規格書寫明不要顯示的欄位（0908GT：total_bet「無須顯示」、api_id「查詢結果不用顯示」）。
+  // 「查詢結果僅需顯示「玩家暱稱」」這種是換成別的值顯示，不算。
+  pairs.forEach(p => {
+    const all = p.rawDesc + ' ' + p.note;
+    const hm = all.match(FIELD_HIDE_RE);
+    if (hm) { p.hidden = true; p.hiddenWhy = hm[0]; }
+    const dm = all.match(/預設(?:值)?(?:為|是|=|：|:)\s*([^\s，,。；;]+)/);
+    if (dm) p.defaultValue = dm[1];
+  });
   return pairs;
 }
+const FIELD_HIDE_RE = /(無須|毋須|無需|不須|不需要?|不用|免)顯示/;
 
 // ─── 無明確欄位定義表時的後備：從內文推測欄名（extractSpecMeta 的 fallback）───
 function extractSpecColumns(state) {
@@ -2485,7 +2502,8 @@ function extractSpecMeta(state, tool) {
   // props: { col: 中文欄名, name: C# 屬性名(PascalCase), dbName: 實際 DB 欄位名 }
   const props = pairs.length >= 3
     // 明確欄位定義表 → 直接一一對應（[api_id] | 平台id → ApiId / 平台id / api_id）
-    ? pairs.map(p => ({ col: p.desc, name: pascalField(p.field), dbName: p.field }))
+    ? pairs.map(p => ({ col: p.desc, name: pascalField(p.field), dbName: p.field,
+                        hidden: !!p.hidden, hiddenWhy: p.hiddenWhy, defaultValue: p.defaultValue }))
     : columns.map(col => {
     // 1. 從規格書 DB 欄位找對應
     for (const f of dbFields) {
@@ -2533,7 +2551,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-10-14d';
+const APP_BUILD = '2026-10-14e';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-10-12';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-10-12';
@@ -2917,9 +2935,12 @@ function buildQueryToolConfig(state, tool) {
   // 5) 顯示欄位
   const used = new Set();
   const dropped = [];
+  const hiddenCols = [];
   const viewData = props.filter(p => {
     // 瑕疵③：規格文件的章節說明/備註被誤判成資料欄位（「單一分頁，2」「個頁籤，全頁唯讀」…）
     if (isNotAColumnTitle(p.col)) { dropped.push(p.col); return false; }
+    // 規格書寫明「無須顯示／查詢結果不用顯示」→ 不放進顯示欄位（可在「✏️ 欄位確認/修改」勾回來）
+    if (p.hidden) { hiddenCols.push(p); return false; }
     return true;
   }).map(p => {
     // 瑕疵②：規格書沒寫真實欄位代號時，程式會用字典拼一個（FieldN 或「Platform」這種）。
@@ -2946,6 +2967,18 @@ function buildQueryToolConfig(state, tool) {
   });
   if (dropped.length) {
     rows.push(['（已排除非欄位項目）', dropped.map(escapeHtml).join('、'), 'ok', '看起來是規格書的章節說明/備註，不是資料欄位']);
+  }
+  if (hiddenCols.length) {
+    rows.push(['（依規格書不顯示）',
+      hiddenCols.map(p => '<code>' + escapeHtml(p.dbName) + '</code>（' + escapeHtml(p.hiddenWhy) + '）').join('、'),
+      'ok', `${hiddenCols.length} 欄未放進顯示欄位；需要的話可在「✏️ 欄位確認/修改」勾回來`]);
+  }
+  // 「預設為 2」可能是「只查 api_id = 2 的資料」，也可能只是描述資料本身——不自動產生條件，交人判斷
+  const defaults = props.filter(p => p.defaultValue != null);
+  if (defaults.length) {
+    todos.push(`<b>預設值</b>：規格書寫 ${defaults.map(p => '<code>' + escapeHtml(p.dbName) + '</code> 預設為 <code>' + escapeHtml(p.defaultValue) + '</code>').join('、')}。`
+      + '如果意思是「這個工具只查這個值的資料」，請工程師加上隱藏的固定查詢條件（搜尋條件設 <code>IsHidden=true</code>＋<code>FixedValue</code>）；'
+      + '如果只是說明資料內容，就不用處理。本工具沒有自動產生這個條件');
   }
   if (todoFields.length) {
     todos.push(`<b>顯示欄位</b>：<code>${todoFields.map(escapeHtml).join('</code>／<code>')}</code> 這 ${todoFields.length} 欄，規格書沒寫真實 DB 欄位名，已標成 <code>TODO_待確認欄位_*</code>。<b>匯入前一定要改成真實欄位名</b>，否則該欄查不到資料（可用上方「✏️ 欄位確認/修改」直接填）`);
