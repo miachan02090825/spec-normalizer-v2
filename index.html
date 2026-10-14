@@ -2053,6 +2053,8 @@ function isFieldTableHeader(segs) {
 }
 const SECTION_MARK = /^[▍■▌◆●]|頁籤\s*\d|^Tab\s*\d/i;
 const TABLE_LINE = /\[(\w+)\]\s*\.\s*\[(\w+)\]\s*\.\s*\[(\w+)\]/;
+// 整格只有表名（表的標題列）；說明文字裡順帶提到的表名不算
+const TABLE_ONLY = /^\[\w+\]\s*\.\s*\[\w+\]\s*\.\s*\[\w+\]$/;
 
 // 整份文件出現過的三段式表名，供跨分頁補完（例：頁籤2 只寫 PlayerData，表名在總覽頁）
 function docTableRefs(state) {
@@ -2080,14 +2082,20 @@ function extractToolSections(state) {
       if (isFieldTableHeader(segs)) heads.push(i);
     });
     if (!heads.length) continue;   // 沒有欄位對照表 → 這個分頁不產出工具
+    const sheetSecs = [];
 
-    // 每張表往前找錨點（頁籤標題／資料表位置），把它們一起劃進該段
+    // 每張表往前找錨點（頁籤標題／資料表位置），把它們一起劃進該段。
+    // 表名錨點只認「第一格就是 [db].[dbo].[table]」的列：上一張表的說明欄常寫
+    // 「可透過對照表[backend].[dbo].[game]取得」，把它當錨點會把上一張表的欄位切給下一段
+    // （0908GT：閃牌查詢工具主表只剩表頭，欄位全被切進 ReasonCode 那段）。
+    const firstCell = l => (l.split('|').map(s => s.trim()).find(Boolean) || '');
     const starts = heads.map((h, k) => {
       const low = k === 0 ? 0 : heads[k - 1] + 1;
       let start = h;
       for (let j = h - 1; j >= low; j--) {
         const t = lines[j].replace(/\|/g, ' ').trim();
-        if (SECTION_MARK.test(t) || TABLE_LINE.test(lines[j]) || /資料表位置|資料來源|資料表：/.test(t)) start = j;
+        const tableAnchor = k === 0 ? TABLE_LINE.test(lines[j]) : TABLE_ONLY.test(firstCell(lines[j]));
+        if (SECTION_MARK.test(t) || tableAnchor || /資料表位置|資料來源|資料表：/.test(t)) start = j;
       }
       return start;
     });
@@ -2127,12 +2135,71 @@ function extractToolSections(state) {
           if (n > best) { best = n; hint = r; }
         }
       }
-      sections.push({ name, sheetName, flatText: hint
+      const flatText = hint
         ? '資料表：[' + hint.db + '].[' + hint.schema + '].[' + hint.table + ']\n' + text
-        : text, isSection: true });
+        : text;
+      const tm = flatText.match(TABLE_LINE);
+      sheetSecs.push({ name, sheetName, flatText, isSection: true,
+        tableKey: tm ? tableKeyOf(tm[1], tm[2], tm[3]) : null, tableRef: tm ? tm[0] : null });
     });
+
+    // 規格書自己宣告了「需製作工具 | 相關資料表」時，以宣告為準：
+    // 只有宣告為某工具主表的欄位表才是工具，其餘欄位表是關聯／對照表的定義（閃牌查詢工具 0908GT：
+    // 1 個工具 + 5 張關聯表，原本被切成 6 個工具）。關聯表掛到前面最近的主表工具底下。
+    // 安全閥：宣告裡的主表一張都對不到本分頁的欄位表時，不套用（可能是別的寫法）。
+    const decl = parseToolDeclaration(rows);
+    if (decl && sheetSecs.some(s => s.tableKey && decl.mains[s.tableKey])) {
+      let cur = null;
+      sheetSecs.forEach(s => {
+        if (s.tableKey && decl.mains[s.tableKey]) {
+          s.name = sanitizeLabel(decl.mains[s.tableKey]) || s.name;
+          s.related = [];
+          cur = s;
+          sections.push(s);
+        } else if (cur && s.tableRef) {
+          cur.related.push({ ref: s.tableRef, note: decl.notes[s.tableKey] || '' });
+        } else {
+          sections.push(s);
+        }
+      });
+    } else {
+      sheetSecs.forEach(s => sections.push(s));
+    }
   }
   return sections;
+}
+
+function tableKeyOf(db, schema, table) {
+  return (db + '.' + schema + '.' + table).toLowerCase();
+}
+
+// 找「需製作工具 | 相關資料表 | 備註」這種宣告表：工具名那欄有值 = 該工具的主表；
+// 工具名留白的後續列 = 上一個工具的關聯表。遇到空列就結束。
+function parseToolDeclaration(rows) {
+  const cellsOf = r => (r || []).map(c => String(c == null ? '' : c).trim());
+  for (let i = 0; i < rows.length; i++) {
+    const cells = cellsOf(rows[i]);
+    const ti = cells.findIndex(c => /^(需製作工具|製作工具|工具名稱|工具)$/.test(c));
+    const di = cells.findIndex(c => /^(相關資料表|資料表|使用資料表|對應資料表)$/.test(c));
+    if (ti < 0 || di < 0 || ti === di) continue;
+    // 備註只取「備註」那一欄：宣告表常跟「希望完成時間／上線時間」並排，整列抓會混進去
+    const ni = cells.findIndex((c, k) => k !== ti && k !== di && /^(備註|說明|用途)$/.test(c));
+    const mains = {}, notes = {};
+    let last = null, any = false;
+    for (let j = i + 1; j < rows.length; j++) {
+      const r = cellsOf(rows[j]);
+      if (!r.some(Boolean)) break;
+      const m = (r[di] || '').match(TABLE_LINE);
+      if (!m) break;
+      const key = tableKeyOf(m[1], m[2], m[3]);
+      const note = ni >= 0 ? (r[ni] || '').replace(/\s+/g, ' ') : '';
+      if (note) notes[key] = note;
+      if (r[ti]) { last = r[ti]; mains[key] = last; any = true; }
+      else if (!last) break;
+    }
+    if (any) return { mains, notes };
+  }
+  return null;
 }
 
 function extractTools(state) {
@@ -2239,6 +2306,7 @@ function extractFieldPairs(text) {
   const pairs = [];
   let inTable = false;
   let miss = 0;
+  let group = [], grouped = false;
   for (const raw of lines) {
     const line = raw.trim();
     // 說明欄的表頭不是只有「欄位說明」一種寫法（星超8 用「用途」），差一個詞整張表就抓不到
@@ -2247,15 +2315,35 @@ function extractFieldPairs(text) {
       if (isFieldHeader) inTable = true;
       continue;
     }
-    // 遇到下一張表（另一組 [db].[dbo].[table] 或另一個欄位表頭）→ 主表結束
-    if (/\[\w+\]\s*\.\s*\[\w+\]\s*\.\s*\[\w+\]/.test(line) || isFieldHeader) break;
     // 分段解析（容忍空儲存格與前導空欄）：第一個非空段 = 欄位名、其後第一個非空段 = 欄位說明
     const segs = line.split('|').map(s => s.trim());
     while (segs.length && !segs[0]) segs.shift();
+    // 遇到下一張表（某一列整格只有 [db].[dbo].[table]，或另一個欄位表頭）→ 主表結束。
+    // 說明欄常寫「可透過對照表[backend].[dbo].[game]取得」，儲存格換行後甚至會以表名開頭，
+    // 那都是提到別張表，不是新表開始（0908GT 閃牌查詢工具就是因此一個欄位都抓不到）。
+    if (isFieldHeader || (segs[0] && TABLE_ONLY.test(segs[0]))) break;
     const fm = segs[0] && segs[0].match(/^\[?([A-Za-z_][A-Za-z0-9_]*)\]?$/);
     const desc = segs.slice(1).find(Boolean);
-    if (fm && desc) { pairs.push({ field: fm[1], desc: sanitizeLabel(desc) || fm[1] }); miss = 0; }
-    else if (pairs.length && ++miss >= 3) break; // 容忍儲存格內換行造成的續行
+    // 一格寫好幾個欄位（[rule1]↵[rule2]↵…↵[rule5] | 廣告條件1~5種類）：攤平後第一個欄位那列沒有說明、
+    // 中間幾個是沒有 | 的續行，說明在最後一個欄位那列。先收著，等到說明再一起輸出。
+    if (raw.indexOf('|') < 0) {
+      if (fm && group.length) { group.push(fm[1]); grouped = true; }
+      continue;   // 其他沒有 | 的是儲存格內換行的續行（或空行），不算「不是欄位的列」
+    }
+    // 沒說明的欄位列：可能是一格多欄位的開頭，也可能只是規格書沒寫說明（星超8 的 Result）。
+    // 後面真的接到續行欄位才算一組；否則照舊當成「不是欄位的列」。
+    if (fm && !desc) {
+      group = [fm[1]]; grouped = false;
+      if (pairs.length && ++miss >= 3) break;
+      continue;
+    }
+    if (fm && desc) {
+      const fields = grouped ? group.concat(fm[1]) : [fm[1]];
+      const label = sanitizeLabel(desc) || fm[1];
+      fields.forEach(f => pairs.push({ field: f, desc: fields.length > 1 ? sanitizeLabel(label + '(' + f + ')') || f : label }));
+      group = []; grouped = false; miss = 0;
+    }
+    else { group = []; grouped = false; if (pairs.length && ++miss >= 3) break; } // 容忍儲存格內換行造成的續行
   }
   return pairs;
 }
@@ -2445,7 +2533,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-10-14b';
+const APP_BUILD = '2026-10-14c';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-10-12';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-10-12';
@@ -2767,6 +2855,15 @@ function buildQueryToolConfig(state, tool) {
     todos.push(`<b>跨表欄位</b>：這個工具有欄位來自 <code>${qualifiers.map(escapeHtml).join('</code>／<code>')}</code>，不是主表 <code>${escapeHtml(mainTable)}</code>。`
       + '這需要 <code>RelatedTableSetting</code> 關聯設定（或改用 <code>CUSTOM_SQL</code>），<b>本工具不會產生關聯設定</b>，請工程師補上，否則這些欄位查不到資料');
     rows.push(['跨表欄位', qualifiers.map(escapeHtml).join('、'), 'warn', '需 RelatedTableSetting，本工具未產生']);
+  }
+
+  // 2.6) 規格書宣告的關聯表（已併入本工具、不另外產工具）：本工具不產關聯設定，交工程師
+  if (tool && tool.related && tool.related.length) {
+    const list = tool.related.map(r => '<code>' + escapeHtml(r.ref) + '</code>' + (r.note ? '（' + escapeHtml(r.note) + '）' : ''));
+    todos.push(`<b>關聯表</b>：規格書寫明這個工具要從下列 ${tool.related.length} 張表取值，<b>它們不是獨立工具，已併入本工具</b>：`
+      + list.join('、') + '。本工具不會產生 <code>RelatedTableSetting</code>／跨資料庫查值設定，'
+      + '請工程師依規格書的「關聯主鍵」說明補上（不同資料庫的表需用 <code>RELATED_VALUE_LOOKUP</code> 或 <code>CUSTOM_SQL</code>＋<code>SqlConnection</code>），否則這些欄位查不到資料');
+    rows.push(['關聯表', tool.related.map(r => escapeHtml(r.ref)).join('<br>'), 'warn', '已併入本工具，關聯設定需工程師補']);
   }
 
   // 3) 權限字串（依 known-browse-authority-snapshot 推薦，但角色範圍仍要人工確認）
