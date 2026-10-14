@@ -2560,7 +2560,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-10-14j';
+const APP_BUILD = '2026-10-14k';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 // skill 包 2026-10-12 快照 86 個 ＋ 2026-10-14 dev 精靈連線清單多出的 8 個（CFG_CONN_DEV_RUNTIME_ONLY）
 const CFG_SNAPSHOT_DATE = '2026-10-14';
@@ -2707,7 +2707,7 @@ function renderBuiltinRules() {
     `<li>搜尋條件只能用主表真實欄位（佔位欄名／別名會讓<b>整支工具打不開</b>）；多欄位 Field 只限 ${CFG_MULTI_COLUMN_OPERATORS.length} 種運算子</li>` +
     `<li>連線區分大小寫；只在 dev 設定的連線（二測缺 ${CFG_CONN_NOT_IN_STAGING.length} 把、正式缺 ${CFG_CONN_NOT_IN_PROD.length} 把）會提醒上線前先合併設定</li>` +
     `<li><b>ViewDataSetting／SearchSetting／RelatedTableSetting 會序列化成字串</b>（schema 明列最易錯的一步）</li>` +
-    `<li><b>BrowseAuthority</b> 依 ${CFG_AUTH_SNAPSHOT_DATE} 權限快照（${Object.keys(CFG_AUTHORITY_MAP).length} 組）＋命名樣式推薦建議值（含 Tmd→<code>GAME_GOLD</code> 陷阱）；套不上樣式就留 <code>TODO_</code> 不硬猜</li>` +
+    `<li><b>BrowseAuthority</b> 依 ${CFG_AUTH_SNAPSHOT_DATE} 權限快照（${Object.keys(CFG_AUTHORITY_MAP).length} 組）＋命名樣式推薦建議值（含 Tmd→<code>GAME_GOLD</code>、Slam888→<code>GAME_SLAM777</code> 兩個陷阱）；套不上樣式就留 <code>TODO_</code> 不硬猜</li>` +
     `<li>權限依每支工具決定：可在「📍 選單位置與權限」逐支指定；指定了既有 ${CFG_KNOWN_AUTHORITIES.length} 個以外的權限碼會提醒確認角色</li>` +
     `<li>快照會過期：清單裡沒有<b>不代表不存在</b>，標 <code>TODO_</code> 交工程師確認，不自行發明識別碼</li>` +
     `<li>不產出這幾類雜訊：章節說明被當成欄位、<code>FieldN</code> 佔位欄名、拿顯示欄位硬湊搜尋條件</li>` +
@@ -3847,6 +3847,9 @@ function downloadChecklist() {
     `  -InFile '${cfgBaseName()}${o.wizard ? '_wizard' : '_import'}.json'`,
     '```', '',
     '> 需要 `TOOL_MENU.ITEM_ADD` 權限的 JWT。本機驗證只涵蓋格式與白名單；連線可達性、欄位是否真實存在、唯一索引皆未驗證，建議先匯入 Dev 實跑一次再推 Staging/Production。',
+    // wizard 檔刻意不含 MenuParentNo（貼進精靈時寫 0 會被當成根節點），所以直接打 wizard API 會缺父節點
+    ...(o.wizard ? ['', '> ⚠️ wizard 檔**不含 `MenuParentNo`**（給精靈「貼上JSON快速填入」用，寫 0 會被當成根節點）。要直接打 wizard API，'
+      + '請先用 `GET web/query-tool/wizard/resolve-path?path=<資料夾路徑>` 查出真實父節點編號補進檔案；路徑有任何一段還不存在時 API 建不了，請改用精靈。'] : []),
   ].join('\n');
   const blob = new Blob([md], { type: 'text/markdown' });
   const url = URL.createObjectURL(blob);
