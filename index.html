@@ -2552,7 +2552,7 @@ window._cfgOut = null;     // 產出的設定檔 + checklist
 //       / scripts/Validate-QueryToolImport.ps1
 // 連線快照會過期：清單裡沒有 ≠ 一定不存在，一律標 TODO_ 交工程師確認。
 // 版本戳：GitHub Pages 會快取 10 分鐘，畫面上看得到版本才分得出「是不是還在用舊頁」
-const APP_BUILD = '2026-10-14g';
+const APP_BUILD = '2026-10-14h';
 const CFG_PACK_VERSION = 'query-tool-config-generator（內建）';
 const CFG_SNAPSHOT_DATE = '2026-10-12';
 const CFG_AUTH_SNAPSHOT_DATE = '2026-10-12';
@@ -3092,6 +3092,12 @@ function buildQueryToolConfig(state, tool) {
   if (!named.length) {
     todos.push('<b>SearchSetting</b>：規格書沒有明確寫出要用哪些欄位搜尋，因此<b>只放了日期區間</b>（若有）。'
       + '請對照規格書補上真正的搜尋條件與運算子——<b>不要沿用預設值就直接匯入</b>');
+    // 團隊慣例：規格書沒寫時，日期區間預設近 7 天。但後台的 DefaultValue 是原字串照填、不會換算相對日期
+    // （2026-10-14 查 dev 後台前端確認），寫死日期隔天就過時，所以先不產生、等後台支援
+    if (search.some(s => s.Operator === 'BETWEEN')) {
+      todos.push('<b>日期區間預設</b>：規格書沒寫時，日期區間應<b>預設近 7 天</b>。但後台目前的預設值只能填固定文字、不支援「近 N 天」，'
+        + '寫死日期隔天就過時，所以設定檔<b>沒有填預設值</b>（目前打開工具會顯示最近 20 筆）。已請工程師評估支援，支援後再補上');
+    }
     rows.push(['搜尋條件', search.length ? '僅日期區間' : 'SearchSetting=<code>[]</code>',
       'warn', '規格書未明確描述搜尋需求，未自行湊數']);
   }
